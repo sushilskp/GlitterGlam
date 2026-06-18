@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Sparkles, Award, ShieldCheck, Heart } from 'lucide-react';
 import { HomeSettings } from '../types';
 import heroBannerImg from '../assets/images/hero_jewellery_banner_1781689221440.jpg';
@@ -41,21 +41,57 @@ export default function Hero({ settings, onExplore, onVisit }: HeroProps) {
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  // Nested lazy-loading video component defined here to keep file scoped and simple
+  function HeroBackgroundVideo({ poster }: { poster: string }) {
+    const [loadVideo, setLoadVideo] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+      if (!wrapperRef.current) return;
+      if (typeof IntersectionObserver === 'undefined') {
+        // If no IO support, immediately load
+        setLoadVideo(true);
+        return;
+      }
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setLoadVideo(true);
+            obs.disconnect();
+          }
+        });
+      }, { rootMargin: '200px' });
+      obs.observe(wrapperRef.current);
+      return () => obs.disconnect();
+    }, []);
+
+    return (
+      <div ref={wrapperRef} className="absolute inset-0 w-full h-full">
+        {loadVideo ? (
+          <video
+            poster={poster}
+            className="absolute inset-0 w-full h-full object-cover hidden sm:block"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            src={bgVideo}
+          />
+        ) : (
+          <img src={poster} alt="hero poster" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+      </div>
+    );
+  }
+
   return (
     <section className="relative min-h-[85vh] flex items-center hero-gradient overflow-hidden border-b border-[#C9A66B]/15">
       {/* Absolute Ambient background video + shapes */}
       <div className="absolute inset-0 z-0">
-        {/* Background video: autoplay, muted, loop. Hidden on very small screens to save bandwidth. */}
-        <video
-          src={bgVideo}
-          poster={heroBannerImg}
-          className="absolute inset-0 w-full h-full object-cover hidden sm:block"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-        />
+        {/* Background video: lazy-load via IntersectionObserver to avoid heavy initial download on Vercel */}
+        {/* Video will not set `src` until element is visible; poster remains as fallback. */}
+        <HeroBackgroundVideo poster={heroBannerImg} />
 
         <div className="absolute top-10 left-12 w-72 h-72 bg-[#C9A66B]/8 rounded-full blur-3xl animate-[bounce_10s_infinite_alternate]" />
         <div className="absolute bottom-20 right-16 w-96 h-96 bg-[#A67C52]/8 rounded-full blur-3xl animate-[pulse_12s_infinite]" />
