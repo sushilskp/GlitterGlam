@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Glitter Glam",
+  "description": "Premium Artificial \u0026 1 Gram Gold Jewellery Boutique e-commerce platform featuring an interactive boutique catalogue, size guides, custom bridal set queries, order tracking, simulated payments, and admin engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
