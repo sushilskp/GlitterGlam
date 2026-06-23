@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, Sliders, Check, FolderUp, Plus, Trash2, Save } from 'lucide-react';
 import { Product, HomeSettings } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -52,6 +52,48 @@ export default function AdminPanel({
     sizeOptions: ['Free Size']
   });
 
+  useEffect(() => {
+    setSettingsForm(settings);
+  }, [settings]);
+
+  // Auto-save settings whenever the slideshow images (or any other tracked
+  // settings field) change. We save on *any* change — including when the
+  // array shrinks to zero — so deletes persist to the cloud. We also bail
+  // out when the form is in sync with the latest server snapshot to avoid
+  // re-writing on every cloud reload.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const formKey = JSON.stringify({
+        gallery: settingsForm.heroGalleryImages || [],
+        banner: settingsForm.heroBannerImage || '',
+        announcement: settingsForm.announcementText || '',
+        headline: settingsForm.heroHeadline || '',
+        subtitle: settingsForm.heroSubtitle || '',
+        whatsapp: settingsForm.whatsappContact || '',
+        address: settingsForm.storeAddress || '',
+        timing: settingsForm.storeTiming || '',
+        email: settingsForm.supportEmail || '',
+        insta: settingsForm.instagramHandle || ''
+      });
+      const serverKey = JSON.stringify({
+        gallery: settings.heroGalleryImages || [],
+        banner: settings.heroBannerImage || '',
+        announcement: settings.announcementText || '',
+        headline: settings.heroHeadline || '',
+        subtitle: settings.heroSubtitle || '',
+        whatsapp: settings.whatsappContact || '',
+        address: settings.storeAddress || '',
+        timing: settings.storeTiming || '',
+        email: settings.supportEmail || '',
+        insta: settings.instagramHandle || ''
+      });
+      if (formKey !== serverKey) {
+        onUpdateSettings(settingsForm);
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [settingsForm, settings, onUpdateSettings]);
+
   const handleEditClick = (p: Product) => {
     setEditingId(p.id);
     setNewProduct(p);
@@ -84,18 +126,24 @@ export default function AdminPanel({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []) as File[];
-    if (files.length === 0) return;
+    const inputEl = e.target;
+    const files = Array.from(inputEl.files || []) as File[];
+    if (files.length === 0) {
+      inputEl.value = '';
+      return;
+    }
     
     // Validate
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     for (const file of files) {
       if (!validTypes.includes(file.type)) {
         alert(`Only JPG, JPEG, PNG, or WEBP images are allowed. Skipped ${file.name}`);
+        inputEl.value = '';
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
         alert(`Image size exceeds 10MB maximum limit. Skipped ${file.name}`);
+        inputEl.value = '';
         return;
       }
     }
@@ -109,13 +157,14 @@ export default function AdminPanel({
       const newUrls: string[] = [];
 
       for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
+        const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        // UUID + timestamp = unique filename, never collides with prior uploads.
+        const fileName = `${Date.now()}-${uuidv4()}.${fileExt}`;
         const filePath = `product-images/${fileName}`;
       
         const { error: uploadError } = await supabase.storage
           .from('assets')
-          .upload(filePath, file);
+          .upload(filePath, file, { upsert: false, contentType: file.type });
 
         if (uploadError) throw uploadError;
 
@@ -123,17 +172,88 @@ export default function AdminPanel({
           .from('assets')
           .getPublicUrl(filePath);
 
-        newUrls.push(publicUrlData.publicUrl);
+        if (publicUrlData?.publicUrl) {
+          newUrls.push(publicUrlData.publicUrl);
+        }
       }
 
       setNewProduct(prev => ({
         ...prev,
-        images: [...(prev.images || []), ...newUrls].filter(img => img.trim() !== '')
+        images: [...(prev.images || []), ...newUrls].filter(img => img && img.trim() !== '')
       }));
       alert('Images uploaded successfully!');
     } catch (error: any) {
       console.error('Upload Error:', error);
-      alert('Image upload failed: ' + error.message + '\nVerify that a public Supabase Storage bucket named "assets" exists.');
+      alert('Image upload failed: ' + (error?.message || 'Unknown error') + '\nVerify that a public Supabase Storage bucket named "assets" exists.');
+    } finally {
+      inputEl.value = '';
+    }
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputEl = e.target;
+    const files = Array.from(inputEl.files || []) as File[];
+    // If the user cancelled the picker, reset the value and exit silently
+    if (files.length === 0) {
+      inputEl.value = '';
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    for (const file of files) {
+      if (!validTypes.includes(file.type)) {
+        alert(`Only JPG, JPEG, PNG, or WEBP images are allowed. Skipped ${file.name}`);
+        inputEl.value = '';
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`Image size exceeds 10MB maximum limit. Skipped ${file.name}`);
+        inputEl.value = '';
+        return;
+      }
+    }
+
+    try {
+      const { supabase } = await import('../lib/supabaseClient');
+      if (!supabase) throw new Error('Supabase not configured');
+
+      const newUrls: string[] = [];
+      for (const file of files) {
+        const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        // Use UUID + timestamp to guarantee a unique filename in the bucket,
+        // so we never collide with a previous upload.
+        const fileName = `${Date.now()}-${uuidv4()}.${fileExt}`;
+        const filePath = `hero-gallery/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('assets')
+          .upload(filePath, file, { upsert: false, contentType: file.type });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('assets')
+          .getPublicUrl(filePath);
+
+        if (publicUrlData?.publicUrl) {
+          newUrls.push(publicUrlData.publicUrl);
+        }
+      }
+
+      const mergedImages = [...(settingsForm.heroGalleryImages || []), ...newUrls].filter(Boolean);
+      const nextSettings = { ...settingsForm, heroGalleryImages: mergedImages };
+      setSettingsForm(nextSettings);
+      // Push to cloud immediately so refresh + server restart both see it.
+      onUpdateSettings(nextSettings);
+      if (newUrls.length > 0) {
+        alert(`${newUrls.length} gallery photo${newUrls.length > 1 ? 's' : ''} uploaded successfully!`);
+      }
+    } catch (error: any) {
+      console.error('Gallery upload error:', error);
+      alert('Gallery upload failed: ' + (error?.message || 'Unknown error') + '\nVerify that a public Supabase Storage bucket named "assets" exists.');
+    } finally {
+      // Reset the input so the same file can be re-selected later.
+      inputEl.value = '';
     }
   };
 
@@ -393,6 +513,72 @@ export default function AdminPanel({
               <div className="space-y-2 md:col-span-2">
                 <label className="block text-xs font-bold text-stone-600">Hero Section Background Image URL</label>
                 <input type="text" value={settingsForm.heroBannerImage || ''} onChange={e => setSettingsForm({...settingsForm, heroBannerImage: e.target.value})} className="w-full border p-2 text-sm rounded bg-stone-50" placeholder="https://..." />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-xs font-bold text-stone-600">Hero Slideshow Photos</label>
+                <div className="bg-white border rounded p-3 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {(settingsForm.heroGalleryImages || []).map((img, idx) => (
+                      <div key={`${img}-${idx}`} className="relative group">
+                        <img src={img} alt={`Slide ${idx + 1}`} className="w-20 h-20 rounded object-cover border" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const removed = (settingsForm.heroGalleryImages || [])[idx];
+                            const nextImages = (settingsForm.heroGalleryImages || []).filter((_, i) => i !== idx);
+                            const nextSettings = { ...settingsForm, heroGalleryImages: nextImages };
+                            setSettingsForm(nextSettings);
+                            onUpdateSettings(nextSettings);
+                            // Best-effort cleanup: if the removed image was hosted
+                            // in our Supabase 'assets' bucket under hero-gallery/,
+                            // also delete the underlying object so the bucket
+                            // doesn't fill up with orphaned photos.
+                            try {
+                              if (removed && removed.includes('/storage/v1/object/public/assets/hero-gallery/')) {
+                                const { supabase } = await import('../lib/supabaseClient');
+                                if (supabase) {
+                                  const objectPath = decodeURIComponent(
+                                    removed.split('/storage/v1/object/public/assets/')[1] || ''
+                                  );
+                                  if (objectPath) {
+                                    await supabase.storage.from('assets').remove([objectPath]);
+                                  }
+                                }
+                              }
+                            } catch (cleanupErr) {
+                              console.warn('Hero gallery object cleanup skipped:', cleanupErr);
+                            }
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {(settingsForm.heroGalleryImages || []).length === 0 && (
+                      <div className="text-xs text-stone-400 italic py-8">No slideshow photos yet.</div>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={(settingsForm.heroGalleryImages || []).join(', ')}
+                    onChange={e => setSettingsForm({
+                      ...settingsForm,
+                      heroGalleryImages: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
+                    })}
+                    className="w-full border p-2 text-sm rounded bg-stone-50"
+                    placeholder="Paste image URLs separated by comma"
+                  />
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleGalleryUpload}
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    className="w-full text-sm text-stone-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#C9A66B]/10 file:text-[#C9A66B] hover:file:bg-[#C9A66B]/20 cursor-pointer"
+                  />
+                  <p className="text-[10px] text-stone-400">Upload multiple photos or paste URLs. These will play as a looping slideshow on the homepage.</p>
+                </div>
               </div>
 
               <div className="space-y-2">

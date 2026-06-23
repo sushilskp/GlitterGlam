@@ -77,12 +77,14 @@ export default function Header({
             aria-label="Go to home"
           >
             {/* Custom logo uploaded by the user */}
-            <img 
-              src={settings.logoUrl || siteLogo} 
-              alt={`${settings.storeName || 'Glitter Glam'} Logo`} 
-              className="w-14 h-14 object-cover rounded-full shadow-sm shadow-[#C9A66B]/20 border border-[#C9A66B]/30 transition-transform duration-500 group-hover:scale-105" 
-              referrerPolicy="no-referrer"
-            />
+            <div className="logo-wrapper no-effect w-14 h-14 shadow-sm shadow-[#C9A66B]/20 border border-[#C9A66B]/30 transition-transform duration-500 group-hover:scale-105">
+              <img
+                src={settings.logoUrl || siteLogo}
+                alt={`${settings.storeName || 'Glitter Glam'} Logo`}
+                className="w-14 h-14"
+                referrerPolicy="no-referrer"
+              />
+            </div>
 
             <div className="flex flex-col text-center lg:text-left">
               <span className="font-serif text-xl sm:text-2xl tracking-[0.2em] text-[#C9A66B] font-semibold leading-none uppercase">{settings.storeName || "GLITTER GLAM"}</span>

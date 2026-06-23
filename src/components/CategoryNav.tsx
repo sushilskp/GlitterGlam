@@ -1,9 +1,12 @@
 import React from 'react';
 import necklacesImg from '../assets/images/category_necklaces_1781689241269.jpg';
 import earringsImg from '../assets/images/category_earrings_1781689256134.jpg';
-import ringsImg from '../assets/images/category_rings_1781689269249.jpg';
+import earringsBg from '../../assets/Ear rings.jpeg';
+import ringsBg from '../../assets/ring.jpeg';
 import braceletsImg from '../assets/images/category_bracelets_1781689309708.jpg';
-import banglesImg from '../assets/images/category_bangles_1781689284371.jpg';
+import banglesBg from '../../assets/Bengles.jpeg';
+import forAllImg from '../../assets/for all.jpeg';
+import necklacesBg from '../../assets/Neakless.jpeg';
 
 interface CategoryNavProps {
   onSelectCategory: (category: string) => void;
@@ -15,22 +18,22 @@ export default function CategoryNav({ onSelectCategory, activeCategory }: Catego
     {
       name: "All",
       tagline: "Full Catalogue",
-      image: necklacesImg
+      image: forAllImg
     },
     {
       name: "Necklaces",
       tagline: "Chokers, Choirs & Sets",
-      image: necklacesImg
+      image: necklacesBg
     },
     {
       name: "Earrings",
       tagline: "Jhumkas & Chandbalis",
-      image: earringsImg
+      image: earringsBg
     },
     {
       name: "Rings",
       tagline: "Bands & Crown Solitaires",
-      image: ringsImg
+      image: ringsBg
     },
     {
       name: "Bracelets",
@@ -40,7 +43,7 @@ export default function CategoryNav({ onSelectCategory, activeCategory }: Catego
     {
       name: "Bangles",
       tagline: "Traditional Kadas",
-      image: banglesImg
+      image: banglesBg
     }
   ];
 

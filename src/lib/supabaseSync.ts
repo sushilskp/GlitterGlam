@@ -29,6 +29,7 @@ const DEFAULT_DB_SETTINGS: HomeSettings = {
   announcementText: "Welcome to Glitter Glam!",
   heroHeadline: "Breathtaking Artistry",
   heroSubtitle: "Discover our premium collections.",
+  heroGalleryImages: [],
   instagramHandle: "@glitterglam",
   whatsappContact: "+91 98769 76655",
   supportEmail: "support@glitterglam.com",
@@ -87,6 +88,7 @@ const mapDbSettingsToApp = (dbSet: any): HomeSettings => ({
   heroHeadline: dbSet.hero_headline || '',
   heroSubtitle: dbSet.hero_subtitle || '',
   heroBannerImage: dbSet.hero_banner_image || '',
+  heroGalleryImages: dbSet.hero_gallery_images || [],
   instagramHandle: dbSet.instagram_handle || '',
   facebookHandle: dbSet.facebook_handle || '',
   whatsappContact: dbSet.whatsapp_contact || '',
@@ -105,6 +107,7 @@ const mapAppSettingsToDb = (settings: HomeSettings) => ({
   hero_headline: settings.heroHeadline,
   hero_subtitle: settings.heroSubtitle,
   hero_banner_image: settings.heroBannerImage || '',
+  hero_gallery_images: settings.heroGalleryImages || [],
   instagram_handle: settings.instagramHandle,
   facebook_handle: settings.facebookHandle || '',
   whatsapp_contact: settings.whatsappContact,
@@ -143,7 +146,7 @@ export const cloudDb = {
       if (!activeSettings && !settingsError) {
         const dbSettingsPayload = mapAppSettingsToDb(DEFAULT_DB_SETTINGS);
         const { error: insertError } = await supabase.from('settings').insert(dbSettingsPayload);
-        if (insertError) {
+      if (insertError) {
           console.error("Settings auto-insert failed (missing columns expected; map subset):", insertError);
           // Retry with absolute bare minimum columns that exist in basic settings table migration
           const barePayload = {
@@ -151,13 +154,17 @@ export const cloudDb = {
             announcement_text: DEFAULT_DB_SETTINGS.announcementText,
             hero_headline: DEFAULT_DB_SETTINGS.heroHeadline,
             hero_subtitle: DEFAULT_DB_SETTINGS.heroSubtitle,
+            hero_gallery_images: DEFAULT_DB_SETTINGS.heroGalleryImages || [],
             whatsapp_contact: DEFAULT_DB_SETTINGS.whatsappContact,
             store_address: DEFAULT_DB_SETTINGS.storeAddress,
             store_timing: DEFAULT_DB_SETTINGS.storeTiming,
             support_email: DEFAULT_DB_SETTINGS.supportEmail,
             instagram_handle: DEFAULT_DB_SETTINGS.instagramHandle
           };
-          await supabase.from('settings').insert(barePayload);
+          const { error: bareInsertError } = await supabase.from('settings').insert(barePayload);
+          if (bareInsertError) {
+            console.error("Settings bare insert failed:", bareInsertError);
+          }
         }
         activeSettings = dbSettingsPayload;
       }
@@ -209,13 +216,45 @@ export const cloudDb = {
 
   updateSettings: async (settings: HomeSettings) => {
     if (!isSupabaseConfigured || !supabase) return;
+    // Try the full payload first; if the schema is missing newer columns
+    // (e.g. the user has not re-run the idempotent migration yet) we fall
+    // back to a bare subset so the rest of the row still saves.
+    const tryUpsert = async (payload: Record<string, any>) => {
+      const { error } = await supabase!.from('settings').upsert(payload);
+      return error;
+    };
+
     try {
       const dbSettings = mapAppSettingsToDb(settings);
-      const { error } = await supabase.from('settings').upsert(dbSettings);
+      let error = await tryUpsert(dbSettings);
+
+      // First fallback: drop every column that is NOT in the original
+      // CREATE TABLE definition. This is the bare subset that will
+      // succeed on an old database where the ALTER TABLE statements
+      // have not been applied yet.
       if (error) {
-        console.error("Settings upsert failed, retrying map subset:", error);
-        // Try bare subset of columns from original migration
+        console.warn('Settings upsert (full) failed, retrying bare subset:', error);
         const bareSettings = {
+          id: GLOBAL_SETTINGS_ID,
+          announcement_text: settings.announcementText,
+          hero_headline: settings.heroHeadline,
+          hero_subtitle: settings.heroSubtitle,
+          hero_gallery_images: settings.heroGalleryImages || [],
+          whatsapp_contact: settings.whatsappContact,
+          store_address: settings.storeAddress,
+          store_timing: settings.storeTiming,
+          support_email: settings.supportEmail,
+          instagram_handle: settings.instagramHandle
+        };
+        error = await tryUpsert(bareSettings);
+      }
+
+      // Second fallback: if even the bare subset fails (e.g. column
+      // `hero_gallery_images` does not exist on the target table), try
+      // with the absolute minimum columns.
+      if (error) {
+        console.warn('Settings upsert (bare) failed, retrying minimal subset:', error);
+        const minimal = {
           id: GLOBAL_SETTINGS_ID,
           announcement_text: settings.announcementText,
           hero_headline: settings.heroHeadline,
@@ -226,11 +265,16 @@ export const cloudDb = {
           support_email: settings.supportEmail,
           instagram_handle: settings.instagramHandle
         };
-        const { error: retryError } = await supabase.from('settings').upsert(bareSettings);
-        if (retryError) throw retryError;
+        error = await tryUpsert(minimal);
+      }
+
+      if (error) {
+        // Give up on the cloud write — caller already has localStorage as
+        // the source of truth so the user does not lose data.
+        console.error('Settings cloud upsert ultimately failed:', error);
       }
     } catch (err) {
-      console.error("Settings cloud upsert failed:", err);
+      console.error('Settings cloud upsert failed:', err);
     }
   }
 };

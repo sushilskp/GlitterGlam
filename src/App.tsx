@@ -15,6 +15,7 @@ import { supabase, isSupabaseConfigured, UserRole } from './lib/supabaseClient';
 import AdminAuth from './components/AdminAuth';
 import founderPoojaImg from '../assets/founder.jpeg';
 import cofounderPranitaImg from '../assets/co-founder.jpeg';
+import visitingBg from '../assets/Neakless.jpeg';
 
 export default function App() {
   // Database States
@@ -24,6 +25,7 @@ export default function App() {
     heroHeadline: "",
     heroSubtitle: "",
     instagramHandle: "",
+    heroGalleryImages: [],
     whatsappContact: "",
     supportEmail: "",
     storeAddress: "",
@@ -168,10 +170,31 @@ export default function App() {
           if (localProds) setProducts(JSON.parse(localProds));
         }
 
-        if (data.settings && data.settings.announcementText) setSettings(data.settings);
-        else {
-          const localSets = localStorage.getItem('backup_settings');
-          if (localSets) setSettings(JSON.parse(localSets));
+        // Settings resolution: cloud is the source of truth when it has
+        // meaningful content, BUT we must not blow away locally-cached
+        // hero gallery images when the cloud row happens to be empty
+        // (e.g. a freshly-seeded row, or an old DB that pre-dates the
+        // `hero_gallery_images` column).
+        const localSetsRaw = localStorage.getItem('backup_settings');
+        const localSets: HomeSettings | null = localSetsRaw ? JSON.parse(localSetsRaw) : null;
+        const localGalleryCount = localSets?.heroGalleryImages?.length ?? 0;
+        const cloudGalleryCount = data.settings?.heroGalleryImages?.length ?? 0;
+
+        if (data.settings && data.settings.id) {
+          if (cloudGalleryCount >= localGalleryCount) {
+            setSettings(data.settings);
+            localStorage.setItem('backup_settings', JSON.stringify(data.settings));
+          } else if (localSets) {
+            // Local cache has more slideshow photos than the cloud — prefer
+            // the local copy, then push it back up so the cloud catches up.
+            const merged: HomeSettings = { ...data.settings, ...localSets, id: data.settings.id };
+            setSettings(merged);
+            localStorage.setItem('backup_settings', JSON.stringify(merged));
+            // Fire-and-forget: write the merged state to the cloud.
+            try { await cloudDb.updateSettings(merged); } catch (e) { /* logged in updateSettings */ }
+          }
+        } else if (localSets) {
+          setSettings(localSets);
         }
       }
       setIsCloudLoading(false);
@@ -205,7 +228,9 @@ export default function App() {
     }
   }, [settings.googleAnalyticsId]);
 
-  // Update state and shadow-write to active Supabase Cloud
+  // Update state and shadow-write to active Supabase Cloud.
+  // The localStorage write is the recovery fallback for offline / single-device
+  // dev — the Supabase upsert is the source of truth for everyone else.
   const syncProducts = async (newProds: Product[]) => {
     setProducts(newProds);
     localStorage.setItem('backup_products', JSON.stringify(newProds));
@@ -213,11 +238,15 @@ export default function App() {
 
   const syncSettings = async (newSets: HomeSettings) => {
     setSettings(newSets);
-    localStorage.setItem('backup_settings', JSON.stringify(newSets));
+    try {
+      localStorage.setItem('backup_settings', JSON.stringify(newSets));
+    } catch (lsErr) {
+      console.warn('Local settings backup write failed (quota?):', lsErr);
+    }
     try {
       await cloudDb.updateSettings(newSets);
     } catch (err) {
-      console.warn("Silent ignore: cloud settings update failed.", err);
+      console.warn('Cloud settings write failed, localStorage kept as fallback:', err);
     }
   };
 
@@ -308,7 +337,7 @@ export default function App() {
         <div id="admin-workspace-header" className="bg-[#1D1D1D] border-b border-[#C9A66B]/30 py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-95 text-[#FDFBF8]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#C9A66B]/15 rounded text-[#C9A66B] font-mono text-base font-bold">
-              ⚙️
+              Ã¢Å¡â„¢Ã¯Â¸Â
             </div>
             <div>
               <h1 className="font-serif text-lg tracking-wider text-[#C9A66B] font-bold leading-none uppercase">Glitter Glam Back-Office</h1>
@@ -319,7 +348,7 @@ export default function App() {
             onClick={() => setActiveTab("home")}
             className="bg-stone-800 hover:bg-[#C9A66B] text-white hover:text-[#1D1D1D] px-4 py-2 text-xs tracking-wider uppercase font-bold flex items-center gap-2 transition-all cursor-pointer border border-[#C9A66B]/20"
           >
-            ← Back to Customer Boutique
+            Ã¢â€ Â Back to Customer Boutique
           </button>
         </div>
       ) : (
@@ -511,7 +540,7 @@ export default function App() {
                   <div className="space-y-2 flex flex-col">
                     <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                       <span>Price Range Limit</span>
-                      <span className="text-[#C9A66B]">Under ₹{maxPrice.toLocaleString('en-IN')}</span>
+                      <span className="text-[#C9A66B]">Under Ã¢â€šÂ¹{maxPrice.toLocaleString('en-IN')}</span>
                     </div>
                     <input 
                       type="range"
@@ -523,8 +552,8 @@ export default function App() {
                       className="w-full accent-[#C9A66B] cursor-pointer"
                     />
                     <div className="flex justify-between text-[9px] text-stone-400 font-mono">
-                      <span>Min: ₹800</span>
-                      <span>Max: ₹7,000</span>
+                      <span>Min: Ã¢â€šÂ¹800</span>
+                      <span>Max: Ã¢â€šÂ¹7,000</span>
                     </div>
                   </div>
 
@@ -592,52 +621,60 @@ export default function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
               
-              {/* Info column */}
-              <div className="lg:col-span-5 bg-[#1D1D1D] text-white p-8 sm:p-12 flex flex-col justify-between border-r-2 border-[#C9A66B]">
-                <div className="space-y-6">
-                  <span className="text-[10px] text-[#C9A66B] uppercase tracking-[0.3em] font-extrabold block">Boutique Coordinates</span>
-                  
-                  <div className="space-y-4 text-xs sm:text-sm text-stone-300 leading-relaxed font-light">
-                    <p className="flex items-start gap-2.5">
-                      <MapPin className="w-5 h-5 text-[#C9A66B] shrink-0 mt-0.5" />
-                      <span>{settings.storeAddress}</span>
-                    </p>
-                    <p className="flex items-center gap-2.5">
-                      <Clock className="w-5 h-5 text-[#C9A66B] shrink-0" />
-                      <span>{settings.storeTiming}</span>
-                    </p>
-                    <p className="flex items-center gap-2.5">
-                      <Phone className="w-5 h-5 text-[#C9A66B] shrink-0" />
-                      <span>{settings.whatsappContact} (WhatsApp Consultancies Desk)</span>
-                    </p>
+              {/* Info column removed as requested */}
+
+              {/* Visiting card: shape-led premium layout */}
+              <div className="lg:col-span-12 min-h-[400px] flex items-center justify-center">
+                <div className="premium-card max-w-4xl w-full m-6">
+                  <div className="premium-card__glow premium-card__glow--left" />
+                  <div className="premium-card__glow premium-card__glow--right" />
+                  <div className="premium-card__frame">
+                    <div className="premium-card__top">
+                      <div>
+                        <p className="premium-card__eyebrow">Glitter Glam</p>
+                        <h2 className="font-serif text-3xl sm:text-4xl font-bold leading-tight text-[#F6E8D1]">
+                          Boutique Flagship
+                        </h2>
+                        <p className="premium-card__subhead">SAS Nagar, Punjab</p>
+                      </div>
+                      <div className="premium-card__badge">
+                        Premium
+                        <span>Visiting Card</span>
+                      </div>
+                    </div>
+
+                    <div className="premium-card__center">
+                      <div className="premium-card__orb premium-card__orb--large" />
+                      <div className="premium-card__orb premium-card__orb--small" />
+                      <div className="premium-card__ring" />
+                      <div className="premium-card__panel">
+                        <p className="premium-card__intro">
+                          Founded by Pooja and Pranita. Handcrafted Indian karigar heritage, micro-fusion finish, and premium-looking jewelry at accessible prices.
+                        </p>
+
+                        <div className="premium-card__details">
+                          <div>
+                            <span>Address</span>
+                            <strong>{settings.storeAddress}</strong>
+                          </div>
+                          <div>
+                            <span>Hours</span>
+                            <strong>{settings.storeTiming}</strong>
+                          </div>
+                          <div>
+                            <span>Call</span>
+                            <strong>{settings.whatsappContact}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="premium-card__footer">
+                      <span>Premium bridal and festive collections in-store</span>
+                      <span>Visit, feel, and choose in person</span>
+                    </div>
                   </div>
                 </div>
-
-                <div className="pt-8 space-y-3">
-                  <a 
-                    href={`https://maps.google.com/?q=${encodeURIComponent(settings.storeAddress)}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="block bg-[#C9A66B] text-white text-center py-3 text-xs uppercase tracking-widest font-bold hover:bg-[#A67C52]"
-                  >
-                    Open Google Maps Directions
-                  </a>
-                  <p className="text-[9px] text-stone-500 uppercase tracking-widest text-center mt-2">
-                    📍 Located right near the main Anaj Mandi Sector 22, Dera Bassi
-                  </p>
-                </div>
-              </div>
-
-              {/* Maps column */}
-              <div className="lg:col-span-7 min-h-[400px] bg-stone-100 border border-[#C9A66B]/15 relative">
-                <iframe 
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(settings.storeAddress)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                  className="absolute inset-0 w-full h-full border-0 rounded-sm"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Glitter Glam Showroom GPS map location"
-                />
               </div>
 
             </div>
@@ -707,17 +744,17 @@ export default function App() {
                 {/* Section 1: About Glitter Glam */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">✦</span> About <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Glitter Glam</span>
+                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> About <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Glitter Glam</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
-                    Founded by design Founder <strong className="font-medium text-[#1D1D1D]">Pooja</strong> and Co-founder <strong className="font-medium text-[#1D1D1D]">Pranita</strong>, <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is a contemporary luxury brand redefining access to premium Indian craftsmanship.
+                    Founded by design Founder <strong className="font-medium text-[#1D1D1D]">Pooja</strong> and Manager <strong className="font-medium text-[#1D1D1D]">Pranita</strong>, <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is a contemporary luxury brand redefining access to premium Indian craftsmanship.
                   </p>
                 </div>
 
                 {/* Section 2: The Luxury Gap */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">✦</span> The <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Luxury Gap</span>
+                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> The <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Luxury Gap</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
                     For too long, the jewelry market forced consumers to choose between prohibitively expensive fine gold and poorly finished, short-lived fashion jewelry. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> was established to eliminate this compromise.
@@ -727,10 +764,10 @@ export default function App() {
                 {/* Section 3: Our Innovation */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">✦</span> Our <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Innovation</span>
+                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> Our <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Innovation</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
-                    We specialize in an advanced <strong className="font-medium text-[#1D1D1D]">micro-fusion process</strong>, crafting high-quality copper alloy bases with dense, premium artificial jewelry coatings and exceptional hallmark-grade polishes. The result is an exquisite collection that looks, feels, and endures like fine luxury jewelry—offered at a minimal, highly accessible price point. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is designed for the modern woman who demands exceptional quality, intelligent design, and affordable luxury for all.
+                    We specialize in an advanced <strong className="font-medium text-[#1D1D1D]">micro-fusion process</strong>, crafting high-quality copper alloy bases with dense, premium artificial jewelry coatings and exceptional hallmark-grade polishes. The result is an exquisite collection that looks, feels, and endures like fine luxury jewelryÃ¢â‚¬â€offered at a minimal, highly accessible price point. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is designed for the modern woman who demands exceptional quality, intelligent design, and affordable luxury for all.
                   </p>
                 </div>
 
@@ -742,11 +779,11 @@ export default function App() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
                   <div className="border border-[#C9A66B]/15 p-4 rounded-sm">
-                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">✧</i> Authentic Polish</h4>
+                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">Ã¢Å“Â§</i> Authentic Polish</h4>
                     <p className="text-[11px] text-gray-500 mt-1">Multi-layered gold-microplating ensuring long-standing tarnish-resistant luster.</p>
                   </div>
                   <div className="border border-[#C9A66B]/15 p-4 rounded-sm">
-                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">✧</i> Handcrafted Heritage</h4>
+                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">Ã¢Å“Â§</i> Handcrafted Heritage</h4>
                     <p className="text-[11px] text-gray-500 mt-1">Sourced from master Indian karigars and hand-polished with utmost care.</p>
                   </div>
                 </div>
@@ -774,22 +811,22 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Co-Founder Pranita */}
+                {/* Manager Pranita */}
                 <div className="space-y-3 text-center sm:text-left sm:mt-8">
                   <div className="w-full aspect-[1/1] overflow-hidden rounded-lg shadow-xl border border-[#C9A66B]/10 bg-stone-50 relative group">
                     <img 
                       src={cofounderPranitaImg} 
-                      alt="Pranita - Co-founder of Glitter Glam" 
+                      alt="Pranita - Manager of Glitter Glam" 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute top-2 left-2 bg-[#1C1C1C]/90 text-white text-[9px] uppercase tracking-widest px-2.5 py-1 rounded border border-white/5 font-semibold">
-                      Co-founder
+                      Manager
                     </div>
                   </div>
                   <div>
                     <h4 className="font-serif text-base font-bold text-[#1D1D1D]">Pranita</h4>
-                    <p className="text-[11px] text-[#A67C52] tracking-wider uppercase font-medium">Co-founder</p>
+                    <p className="text-[11px] text-[#A67C52] tracking-wider uppercase font-medium">Manager</p>
                     <p className="text-xs text-gray-500 mt-1">Bespoke Curation &amp; Operations</p>
                   </div>
                 </div>
@@ -860,7 +897,7 @@ export default function App() {
                     onClick={() => setActiveTab('home')}
                     className="text-stone-400 hover:text-white font-medium"
                   >
-                    ← Browse Storefront
+                    Ã¢â€ Â Browse Storefront
                   </button>
                   <span className="text-stone-700">|</span>
                   <button

@@ -38,10 +38,12 @@ export interface Offer {
 }
 
 export interface HomeSettings {
+  id?: string;
   announcementText: string;
   heroHeadline: string;
   heroSubtitle: string;
   heroBannerImage?: string;
+  heroGalleryImages?: string[];
   instagramHandle: string;
   facebookHandle?: string;
   whatsappContact: string; // The number for orders
@@ -57,4 +59,3 @@ export interface HomeSettings {
   trustPartners?: { name: string; logoUrl: string; href?: string }[];
   reviews?: { id: string; name: string; rating: number; text: string; source?: string }[];
 }
-
