@@ -19,17 +19,34 @@ import visitingBg from '../assets/Neakless.jpeg';
 
 export default function App() {
   // Database States
-  const [products, setProducts] = useState<Product[]>([]);
-  const [settings, setSettings] = useState<HomeSettings>({
-    announcementText: "",
-    heroHeadline: "",
-    heroSubtitle: "",
-    instagramHandle: "",
-    heroGalleryImages: [],
-    whatsappContact: "",
-    supportEmail: "",
-    storeAddress: "",
-    storeTiming: ""
+  // Initial settings: read synchronously from localStorage so the Header /
+  // Hero / announcement bar all render on the FIRST paint, without waiting
+  // for the Supabase round-trip. This eliminates the "page is empty until
+  // data loads" problem users see when they open the site or refresh.
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const raw = localStorage.getItem('backup_products');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [settings, setSettings] = useState<HomeSettings>(() => {
+    try {
+      const raw = localStorage.getItem('backup_settings');
+      if (raw) return JSON.parse(raw);
+    } catch { /* fall through */ }
+    return {
+      announcementText: "Welcome to Glitter Glam!",
+      heroHeadline: "Breathtaking Artistry",
+      heroSubtitle: "Discover our premium collections.",
+      heroGalleryImages: [],
+      instagramHandle: "@glitterglam",
+      whatsappContact: "+91 98769 76655",
+      supportEmail: "support@glitterglam.com",
+      storeAddress: "Store Location",
+      storeTiming: "10 AM - 8 PM"
+    };
   });
 
   // Supabase Syncing States
@@ -332,7 +349,9 @@ export default function App() {
   return (
     <div id="full-scope-view-wrapper" className="min-h-screen flex flex-col justify-between bg-[#FDFBF8] font-sans text-[#1D1D1D] selection:bg-[#C9A66B]/30 tracking-wide antialiased">
       
-      {/* 1. Header Navigation */}
+      {/* 1. Header Navigation — always rendered on customer pages so the menu
+          appears instantly on first paint. Announcement bar is hidden only
+          when the text is truly empty (cosmetic), not the whole header. */}
       {activeTab === 'admin' ? (
         <div id="admin-workspace-header" className="bg-[#1D1D1D] border-b border-[#C9A66B]/30 py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-95 text-[#FDFBF8]">
           <div className="flex items-center gap-3">
@@ -352,22 +371,20 @@ export default function App() {
           </button>
         </div>
       ) : (
-        settings.announcementText && (
-          <Header 
-            settings={settings}
-            activeTab={activeTab}
-            setActiveTab={(tab) => {
-              setActiveTab(tab);
-            }}
-            onSearch={(q) => {
-              setSearchQuery(q);
-            }}
-            onOpenAdmin={() => {
-              setActiveTab("admin");
-            }}
-            currentUser={authSession}
-          />
-        )
+        <Header
+          settings={settings}
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+          }}
+          onSearch={(q) => {
+            setSearchQuery(q);
+          }}
+          onOpenAdmin={() => {
+            setActiveTab("admin");
+          }}
+          currentUser={authSession}
+        />
       )}
 
       {/* 2. Main Page Content views */}
