@@ -2,6 +2,7 @@
 // available on every deploy (no Supabase storage required), so the Hero
 // section never goes blank — even on a brand-new deployment with no
 // cloud-uploaded images yet.
+// Build marker: 2026-06-23 19:55 IST (Breslate.jpeg in slideshow).
 import heroJewelleryBanner from './images/hero_jewellery_banner_1781689221440.jpg';
 import categoryNecklaces from './images/category_necklaces_1781689241269.jpg';
 import categoryEarrings from './images/category_earrings_1781689256134.jpg';
