@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Sliders, Check, FolderUp, Plus, Trash2, Save } from 'lucide-react';
-import { Product, HomeSettings } from '../types';
+import { Package, Sliders, Check, FolderUp, Plus, Trash2, Save, Star, Video, MessageCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Product, HomeSettings, Review, VideoReview } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  loadReviews, saveReview, deleteReview,
+  loadVideoReviews, saveVideoReview, deleteVideoReview
+} from '../lib/reviewsStore';
 
 interface AdminPanelProps {
   products: Product[];
@@ -28,12 +32,31 @@ export default function AdminPanel({
   syncState = { status: 'disconnected', message: 'No sync status connected.' },
   isCloudLoading = false
 }: AdminPanelProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'inventory' | 'settings'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'inventory' | 'social' | 'settings'>('dashboard');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [settingsForm, setSettingsForm] = useState<HomeSettings>(settings);
   const [newTrust, setNewTrust] = useState<{name: string; logoUrl: string; href?: string}>({ name: '', logoUrl: '', href: '' });
   const [newReview, setNewReview] = useState<{name: string; rating: number; text: string; source?: string}>({ name: '', rating: 5, text: '', source: '' });
+
+  // Reviews & Video-reviews state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [videos, setVideos] = useState<VideoReview[]>([]);
+  const [newVideo, setNewVideo] = useState<{ title: string; url: string; productSku: string; thumbnail: string }>({ title: '', url: '', productSku: '', thumbnail: '' });
+  const [socialTab, setSocialTab] = useState<'reviews' | 'videos'>('reviews');
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [editingVideo, setEditingVideo] = useState<VideoReview | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const [r, v] = await Promise.all([loadReviews(), loadVideoReviews()]);
+      if (!mounted) return;
+      setReviews(r);
+      setVideos(v);
+    })();
+    return () => { mounted = false; };
+  }, [activeSubTab]);
   
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: '',
@@ -288,6 +311,7 @@ export default function AdminPanel({
         <div className="text-xs font-bold uppercase tracking-widest text-[#C9A66B] mb-4">Nav Menu</div>
         <button onClick={() => setActiveSubTab('dashboard')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'dashboard' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Dashboard Overview</button>
         <button onClick={() => setActiveSubTab('inventory')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'inventory' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Product Inventory</button>
+        <button onClick={() => setActiveSubTab('social')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'social' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Reviews & Videos</button>
         <button onClick={() => setActiveSubTab('settings')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'settings' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Platform Settings</button>
       </div>
 
@@ -489,6 +513,206 @@ export default function AdminPanel({
                  )}
                </div>
              </div>
+          </div>
+        )}
+
+        {activeSubTab === 'social' && (
+          <div className="space-y-6">
+            <div className="border-b pb-4">
+              <h2 className="font-serif text-2xl font-bold text-stone-900">Reviews & Video Testimonials</h2>
+              <p className="text-sm text-gray-500 mt-1">Moderate customer reviews and curate YouTube / Instagram videos attached to each product.</p>
+            </div>
+
+            <div className="flex gap-2 border-b">
+              <button
+                onClick={() => setSocialTab('reviews')}
+                className={`px-4 py-2 text-sm font-bold uppercase tracking-wider transition-colors ${socialTab === 'reviews' ? 'border-b-2 border-[#C9A66B] text-stone-900' : 'text-stone-400 hover:text-stone-700'}`}
+              >
+                <MessageCircle className="inline w-4 h-4 mr-1" /> Customer Reviews ({reviews.length})
+              </button>
+              <button
+                onClick={() => setSocialTab('videos')}
+                className={`px-4 py-2 text-sm font-bold uppercase tracking-wider transition-colors ${socialTab === 'videos' ? 'border-b-2 border-[#C9A66B] text-stone-900' : 'text-stone-400 hover:text-stone-700'}`}
+              >
+                <Video className="inline w-4 h-4 mr-1" /> Video Reviews ({videos.length})
+              </button>
+            </div>
+
+            {socialTab === 'reviews' && (
+              <div className="space-y-3">
+                {reviews.length === 0 ? (
+                  <p className="text-center text-sm text-stone-500 py-12 bg-stone-50 rounded">No customer reviews yet. They will appear here once customers submit them from product pages.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {reviews.map(r => (
+                      <div key={r.id} className="border border-stone-200 p-3 rounded bg-white flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#C9A66B] to-[#A67C52] text-white text-xs font-bold flex items-center justify-center shrink-0">
+                          {r.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <p className="text-sm font-semibold text-stone-900">{r.name} {r.verified && <ShieldCheck className="inline w-3 h-3 text-green-500 ml-1" />}</p>
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map(n => (
+                                <Star key={n} className={`w-3.5 h-3.5 ${n <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-300'}`} />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            Product: <span className="font-mono">{r.productSku}</span> · {new Date(r.createdAt).toLocaleDateString('en-IN')}
+                            {r.location && <> · {r.location}</>}
+                          </p>
+                          <p className="text-sm text-stone-700 mt-1.5">{r.comment}</p>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={async () => {
+                                const updated = { ...r, verified: !r.verified };
+                                const saved = await saveReview(updated);
+                                setReviews(prev => prev.map(x => x.id === saved.id ? saved : x));
+                              }}
+                              className="text-[10px] uppercase tracking-wider font-bold text-stone-500 hover:text-emerald-600"
+                            >
+                              {r.verified ? 'Unverify' : 'Mark Verified'}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Delete this review?')) return;
+                                await deleteReview(r.id);
+                                setReviews(prev => prev.filter(x => x.id !== r.id));
+                              }}
+                              className="text-[10px] uppercase tracking-wider font-bold text-stone-500 hover:text-red-600"
+                            >
+                              <Trash2 className="inline w-3 h-3 mr-0.5" /> Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {socialTab === 'videos' && (
+              <div className="space-y-4">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!newVideo.title.trim() || !newVideo.url.trim() || !newVideo.productSku.trim()) {
+                      alert('Title, URL, and Product SKU are all required.');
+                      return;
+                    }
+                    const v: VideoReview = {
+                      id: editingVideo?.id || uuidv4(),
+                      productSku: newVideo.productSku.trim(),
+                      title: newVideo.title.trim(),
+                      url: newVideo.url.trim(),
+                      thumbnail: newVideo.thumbnail.trim() || undefined,
+                      createdAt: editingVideo?.createdAt || new Date().toISOString(),
+                    };
+                    const saved = await saveVideoReview(v);
+                    setVideos(prev => {
+                      const without = prev.filter(x => x.id !== saved.id);
+                      return [saved, ...without];
+                    });
+                    setNewVideo({ title: '', url: '', productSku: '', thumbnail: '' });
+                    setEditingVideo(null);
+                    alert(editingVideo ? 'Video updated.' : 'Video added.');
+                  }}
+                  className="bg-stone-50 p-4 rounded border border-stone-200 space-y-3"
+                >
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-stone-700">
+                    {editingVideo ? 'Edit Video' : 'Add New Video Review'}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Video title (e.g. Founder Unboxing)"
+                      value={newVideo.title}
+                      onChange={e => setNewVideo({ ...newVideo, title: e.target.value })}
+                      className="border p-2 text-sm rounded bg-white"
+                      required
+                    />
+                    <select
+                      value={newVideo.productSku}
+                      onChange={e => setNewVideo({ ...newVideo, productSku: e.target.value })}
+                      className="border p-2 text-sm rounded bg-white"
+                      required
+                    >
+                      <option value="">— Pick a product (by SKU) —</option>
+                      {products.map(p => (
+                        <option key={p.id} value={p.sku}>{p.sku} — {p.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="YouTube / Instagram / MP4 URL"
+                      value={newVideo.url}
+                      onChange={e => setNewVideo({ ...newVideo, url: e.target.value })}
+                      className="border p-2 text-sm rounded bg-white sm:col-span-2"
+                      required
+                    />
+                    <input
+                      type="text"
+                      placeholder="Custom thumbnail URL (optional)"
+                      value={newVideo.thumbnail}
+                      onChange={e => setNewVideo({ ...newVideo, thumbnail: e.target.value })}
+                      className="border p-2 text-sm rounded bg-white sm:col-span-2"
+                    />
+                  </div>
+                  <p className="text-[10px] text-stone-500">Accepts YouTube watch / youtu.be / shorts links, Instagram reels, or direct MP4 URLs.</p>
+                  <div className="flex justify-end gap-2">
+                    {editingVideo && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingVideo(null); setNewVideo({ title: '', url: '', productSku: '', thumbnail: '' }); }}
+                        className="px-4 py-2 text-xs font-semibold text-stone-600"
+                      >Cancel</button>
+                    )}
+                    <button type="submit" className="bg-[#1D1D1D] text-[#C9A66B] hover:bg-black px-5 py-2 text-xs font-bold uppercase tracking-widest rounded flex items-center gap-2">
+                      <Plus className="w-3.5 h-3.5" /> {editingVideo ? 'Update Video' : 'Add Video'}
+                    </button>
+                  </div>
+                </form>
+
+                {videos.length === 0 ? (
+                  <p className="text-center text-sm text-stone-500 py-8 bg-stone-50 rounded">No video reviews added yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {videos.map(v => (
+                      <div key={v.id} className="border border-stone-200 p-3 rounded bg-white flex items-center gap-3">
+                        <div className="w-20 h-12 bg-black rounded flex items-center justify-center shrink-0">
+                          <Video className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-stone-900 truncate">{v.title}</p>
+                          <p className="text-xs text-stone-500 truncate font-mono">SKU {v.productSku} · {v.url}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingVideo(v);
+                              setNewVideo({ title: v.title, url: v.url, productSku: v.productSku, thumbnail: v.thumbnail || '' });
+                            }}
+                            className="text-xs text-stone-500 hover:text-[#C9A66B] uppercase font-bold"
+                          >Edit</button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Delete this video?')) return;
+                              await deleteVideoReview(v.id);
+                              setVideos(prev => prev.filter(x => x.id !== v.id));
+                            }}
+                            className="text-xs text-stone-500 hover:text-red-600 uppercase font-bold"
+                          >
+                            <Trash2 className="inline w-3 h-3 mr-0.5" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
