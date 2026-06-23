@@ -51,7 +51,7 @@ export default function Hero({ settings, onExplore, onVisit }: HeroProps) {
   const activeSlide = slides[currentSlide % slides.length];
 
   return (
-    <section className="relative min-h-[85vh] flex items-center hero-gradient overflow-hidden border-b border-[#C9A66B]/15">
+    <section className="relative min-h-[85vh] sm:min-h-[80vh] flex items-center hero-gradient overflow-hidden border-b border-[#C9A66B]/15">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 overflow-hidden">
           {gallerySlides.map((image, index) => (
@@ -64,31 +64,31 @@ export default function Hero({ settings, onExplore, onVisit }: HeroProps) {
               }`}
             />
           ))}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/20 to-black/35" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/45 to-black/55 sm:from-black/50 sm:via-black/20 sm:to-black/35" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,225,170,0.26),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(201,166,107,0.2),transparent_26%)]" />
         </div>
 
-        <div className="absolute top-10 left-12 w-72 h-72 bg-[#C9A66B]/8 rounded-full blur-3xl animate-[bounce_10s_infinite_alternate]" />
-        <div className="absolute bottom-20 right-16 w-96 h-96 bg-[#A67C52]/8 rounded-full blur-3xl animate-[pulse_12s_infinite]" />
+        <div className="absolute top-10 left-12 w-72 h-72 bg-[#C9A66B]/8 rounded-full blur-3xl animate-[bounce_10s_infinite_alternate] hidden sm:block" />
+        <div className="absolute bottom-20 right-16 w-96 h-96 bg-[#A67C52]/8 rounded-full blur-3xl animate-[pulse_12s_infinite] hidden sm:block" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left transition-all duration-700">
-            <div className="inline-flex items-center gap-2 bg-white/10 text-[#F6E8D1] text-[10px] sm:text-xs font-semibold uppercase tracking-[0.35em] px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/15">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 relative z-10 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 items-center">
+          <div className="lg:col-span-7 space-y-4 sm:space-y-6 text-center lg:text-left transition-all duration-700">
+            <div className="inline-flex items-center gap-2 bg-white/10 text-[#F6E8D1] text-[10px] sm:text-xs font-semibold uppercase tracking-[0.35em] px-3 sm:px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/15">
               <Sparkles className="w-3.5 h-3.5" />
               {activeSlide.badge}
             </div>
 
-            <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl text-white leading-[1.12] font-semibold tracking-tight drop-shadow-lg">
+            <h1 className="font-serif text-[1.7rem] leading-[1.1] sm:text-5xl lg:text-6xl text-white font-semibold tracking-tight drop-shadow-lg">
               {activeSlide.title}
             </h1>
 
-            <p className="text-sm sm:text-base text-white/80 max-w-xl mx-auto lg:mx-0 font-light leading-relaxed">
+            <p className="text-[13px] sm:text-base text-white/80 max-w-xl mx-auto lg:mx-0 font-light leading-relaxed">
               {activeSlide.subtitle}
             </p>
 
-            <div className="relative border-l-2 border-[#C9A66B] pl-5 py-2 my-6 italic text-sm text-[#F6E8D1] max-w-lg mx-auto lg:mx-0 text-left bg-black/20 rounded-r-md pr-4 shadow-sm backdrop-blur-sm">
+            <div className="hidden sm:block relative border-l-2 border-[#C9A66B] pl-5 py-2 my-6 italic text-sm text-[#F6E8D1] max-w-lg mx-auto lg:mx-0 text-left bg-black/20 rounded-r-md pr-4 shadow-sm backdrop-blur-sm">
               <p className="font-serif font-light leading-relaxed">
                 "Glitter Glam ki chamak se har andaaz nikhar jaaye,\nJo pehne ek baar, woh nazar sabki chura le jaaye."
               </p>
@@ -97,11 +97,11 @@ export default function Hero({ settings, onExplore, onVisit }: HeroProps) {
               </div>
             </div>
 
-            <p className="text-[11px] sm:text-xs font-semibold text-white/75 uppercase tracking-widest pt-2">
+            <p className="text-[11px] sm:text-xs font-semibold text-white/75 uppercase tracking-widest pt-1 sm:pt-2">
               Pinpointed luxury in every glance.
             </p>
 
-            <div className="flex items-center justify-center lg:justify-start gap-2 pt-2 flex-wrap">
+            <div className="flex items-center justify-center lg:justify-start gap-2 pt-1 sm:pt-2 flex-wrap">
               {gallerySlides.map((_, index) => (
                 <button
                   key={index}
@@ -114,23 +114,23 @@ export default function Hero({ settings, onExplore, onVisit }: HeroProps) {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-3 sm:gap-4 pt-3 sm:pt-4">
               <button
                 onClick={onExplore}
-                className="bg-[#1D1D1D] text-[#FDFBF8] px-8 py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[#C9A66B] transition-all hover:shadow-[0_8px_20px_-4px_rgba(201,166,107,0.4)] cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+                className="bg-[#1D1D1D] text-[#FDFBF8] px-6 sm:px-8 py-3.5 sm:py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-[#C9A66B] transition-all hover:shadow-[0_8px_20px_-4px_rgba(201,166,107,0.4)] cursor-pointer flex items-center justify-center gap-2 shadow-lg"
               >
                 Shop Collection <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={onVisit}
-                className="border border-[#C9A66B] text-white px-8 py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2 bg-white/5 backdrop-blur-md hover:shadow-md cursor-pointer"
+                className="border border-[#C9A66B] text-white px-6 sm:px-8 py-3.5 sm:py-4 uppercase tracking-[0.2em] text-xs font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2 bg-white/5 backdrop-blur-md hover:shadow-md cursor-pointer"
               >
                 Visit Our Showroom
               </button>
             </div>
           </div>
 
-          <div className="lg:col-span-5 relative">
+          <div className="hidden lg:block lg:col-span-5 relative">
             <div className="relative mx-auto w-full max-w-[420px] aspect-[4/5] rounded-[2rem] overflow-hidden border border-white/25 shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
               {gallerySlides.map((image, index) => (
                 <img

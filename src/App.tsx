@@ -415,7 +415,7 @@ export default function App() {
                 <div className="w-12 h-[1.5px] bg-[#C9A66B] mx-auto mt-4" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
                 {(() => {
                   const featuredList = products.filter(p => p.isFeatured);
                   return featuredList.map((prod) => (
@@ -609,7 +609,7 @@ export default function App() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                       {filteredProducts.map((p) => (
                         <ProductCard
                           key={p.id}
