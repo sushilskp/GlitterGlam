@@ -90,6 +90,23 @@ export default function App() {
     };
   }, []);
 
+  // Listen for "open product" events from related-products card clicks
+  // inside the ProductDetailModal. The handler swaps the currently selected
+  // product so the user can browse without leaving the modal.
+  useEffect(() => {
+    const openProductHandler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (!detail) return;
+      const target = products.find(p => p.id === detail);
+      if (target) {
+        setSelectedProduct(target);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('gg:openProduct', openProductHandler);
+    return () => window.removeEventListener('gg:openProduct', openProductHandler);
+  }, [products]);
+
   const [authSession, setAuthSession] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
@@ -954,6 +971,7 @@ export default function App() {
       {selectedProduct && (
         <ProductDetailModal
           product={selectedProduct}
+          allProducts={products}
           onClose={() => setSelectedProduct(null)}
           whatsappContact={settings.whatsappContact}
         />

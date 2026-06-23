@@ -1,3 +1,26 @@
+export interface Review {
+  id: string;
+  productSku: string; // or productId
+  name: string;
+  rating: number; // 1-5
+  comment: string;
+  location?: string;
+  verified?: boolean; // admin-verified
+  approved?: boolean; // admin-approved for public display
+  createdAt: string;
+}
+
+export interface VideoReview {
+  id: string;
+  productSku: string;
+  title: string;
+  // YouTube, Instagram reel, or direct video URL
+  url: string;
+  // Optional cover/thumbnail override
+  thumbnail?: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -18,6 +41,9 @@ export interface Product {
   customOrderEnabled: boolean;
   occasionTags?: string[];
   isFeatured?: boolean;
+  // Marketing / display
+  highlights?: string[]; // bullet points shown on detail page
+  tags?: string[]; // search/filter tags
 }
 
 export interface Category {
