@@ -26,12 +26,15 @@ export interface ChatResponse {
 }
 
 const FREE_MODEL_OPTIONS = [
-  'meta-llama/llama-3.1-8b-instruct:free',
+  // Default: OpenRouter's auto-router that picks a free model that's currently up.
+  'openrouter/free',
+  'liquid/lfm-2.5-1.2b-instruct-20260120:free',
+  'mistralai/mistral-small-3.2-24b-instruct:free',
+  'google/gemma-3-27b-it:free',
   'meta-llama/llama-3.3-70b-instruct:free',
-  'mistralai/mistral-7b-instruct:free',
+  'meta-llama/llama-3.1-8b-instruct:free',
   'qwen/qwen-2.5-7b-instruct:free',
-  'google/gemini-2.0-flash-exp:free',
-  'nvidia/llama-3.1-nemotron-70b-instruct:free',
+  'deepseek/deepseek-chat-v3-0324:free',
 ];
 
 export function listFreeModels(): string[] {

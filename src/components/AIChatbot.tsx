@@ -23,12 +23,14 @@ const QUICK_FOLLOWUPS = [
 
 // Show users a friendly label, not the raw model identifier.
 const MODEL_LABELS: Record<string, string> = {
-  'meta-llama/llama-3.1-8b-instruct:free': 'Llama 3.1 · 8B',
+  'openrouter/free': 'Auto (best free model)',
+  'liquid/lfm-2.5-1.2b-instruct-20260120:free': 'Liquid · 1.2B',
+  'mistralai/mistral-small-3.2-24b-instruct:free': 'Mistral · 24B',
+  'google/gemma-3-27b-it:free': 'Gemma 3 · 27B',
   'meta-llama/llama-3.3-70b-instruct:free': 'Llama 3.3 · 70B',
-  'mistralai/mistral-7b-instruct:free': 'Mistral · 7B',
+  'meta-llama/llama-3.1-8b-instruct:free': 'Llama 3.1 · 8B',
   'qwen/qwen-2.5-7b-instruct:free': 'Qwen 2.5 · 7B',
-  'google/gemini-2.0-flash-exp:free': 'Gemini 2.0 Flash',
-  'nvidia/llama-3.1-nemotron-70b-instruct:free': 'Llama 3.1 · 70B (NVIDIA)',
+  'deepseek/deepseek-chat-v3-0324:free': 'DeepSeek V3',
 };
 
 function prettifyModelName(id: string): string {

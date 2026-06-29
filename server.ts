@@ -33,6 +33,10 @@ app.post("/api/chat", async (req, res) => {
     });
     return;
   }
+  // Sanitize the key — strip any whitespace or invisible chars that might
+  // have been introduced when the operator pasted it into .env.
+  const cleanKey = apiKey.trim().replace(/[\u200B-\u200D\uFEFF\s]/g, '');
+
   const { messages, model } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "bad_request", message: "messages[] is required" });
@@ -48,7 +52,7 @@ app.post("/api/chat", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${cleanKey}`,
         // OpenRouter recommends these for attribution / leaderboards.
         "HTTP-Referer": req.headers.origin || `http://localhost:${PORT}`,
         "X-Title": "Glitter Glam AI Stylist",
@@ -57,7 +61,8 @@ app.post("/api/chat", async (req, res) => {
         model: chosenModel,
         messages,
         // Cap output to keep the chat snappy and within the free tier.
-        max_tokens: 400,
+        // 1500 covers short reasoning models while still bounding the bill.
+        max_tokens: 1500,
         temperature: 0.7,
       }),
     });
@@ -102,10 +107,12 @@ async function bootstrapServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[Glitter Glam Engine] Live backend server running on http://localhost:${PORT}`);
-    if (!process.env.OPENROUTER_API_KEY) {
+    const key = process.env.OPENROUTER_API_KEY;
+    if (!key) {
       console.log(`[AI Stylist] OPENROUTER_API_KEY not set — chatbot will run in offline mode.`);
     } else {
-      console.log(`[AI Stylist] OpenRouter proxy ready at /api/chat`);
+      const clean = key.trim().replace(/[\u200B-\u200D\uFEFF\s]/g, '');
+      console.log(`[AI Stylist] OpenRouter proxy ready at /api/chat (key=${clean.slice(0, 10)}... len=${clean.length})`);
     }
   });
 }
