@@ -1,0 +1,25 @@
+import os
+import sys
+
+bad_strings = [
+    'Ã¢', 'Â¦', 'Â§', 'Â©', 'Â®',
+    'â€', 'âœ', 'â˜', 'â„', 'âš',
+    'Ã¯', 'Ã‹',
+]
+
+with open('mojibake_result.txt', 'w', encoding='utf-8') as out:
+    for root, dirs, files in os.walk('src'):
+        for fn in files:
+            if not fn.endswith(('.tsx', '.ts', '.css', '.html')): continue
+            path = os.path.join(root, fn)
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    text = f.read()
+            except Exception:
+                continue
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                for pat in bad_strings:
+                    if pat in line:
+                        out.write('{}:{}: {}\n'.format(path, i+1, line[:300]))
+                        break

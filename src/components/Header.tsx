@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Search, Menu, X, Settings2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Menu, X, Settings2, ShoppingBag } from 'lucide-react';
 import { HomeSettings } from '../types';
 import siteLogo from '../../assets/logo.jpeg';
 import { logUI } from '../lib/uiLogger';
+import { useCartTotals } from '../lib/cartStore';
 
 interface HeaderProps {
   settings: HomeSettings;
@@ -10,6 +11,7 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   onSearch: (query: string) => void;
   onOpenAdmin: () => void;
+  onOpenCart: () => void;
   currentUser: { name: string; email: string; role: string } | null;
 }
 
@@ -19,11 +21,13 @@ export default function Header({
   setActiveTab,
   onSearch,
   onOpenAdmin,
+  onOpenCart,
   currentUser
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchToggle, setSearchToggle] = useState(false);
   const [queryString, setQueryString] = useState("");
+  const cart = useCartTotals();
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,29 +70,34 @@ export default function Header({
 
       {/* Main Luxury Nav */}
       <header className="sticky top-0 z-40 glass-nav transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative">
-          
-          {/* Logo Section */}
-          <button 
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 relative">
+
+          {/* Logo Section — flex on all sizes so the text never overlaps
+              the action icons or escapes the viewport. */}
+          <button
             id="brand-logo-trigger"
             onClick={handleLogoClick}
-            className="flex items-center gap-3 group text-left cursor-pointer focus:outline-none absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 z-10 lg:z-auto"
+            className="flex items-center gap-2 sm:gap-3 group text-left cursor-pointer focus:outline-none shrink-0"
             title={settings.storeName || "GLITTER GLAM"}
             aria-label="Go to home"
           >
             {/* Custom logo uploaded by the user */}
-            <div className="logo-wrapper no-effect w-14 h-14 shadow-sm shadow-[#C9A66B]/20 border border-[#C9A66B]/30 transition-transform duration-500 group-hover:scale-105">
+            <div className="logo-wrapper no-effect w-11 h-11 sm:w-14 sm:h-14 shadow-sm shadow-[#C9A66B]/20 border border-[#C9A66B]/30 transition-transform duration-500 group-hover:scale-105">
               <img
                 src={settings.logoUrl || siteLogo}
                 alt={`${settings.storeName || 'Glitter Glam'} Logo`}
-                className="w-14 h-14"
+                className="w-11 h-11 sm:w-14 sm:h-14"
                 referrerPolicy="no-referrer"
               />
             </div>
 
-            <div className="flex flex-col text-center lg:text-left">
-              <span className="font-serif text-xl sm:text-2xl tracking-[0.2em] text-[#C9A66B] font-semibold leading-none uppercase">{settings.storeName || "GLITTER GLAM"}</span>
-              <span className="text-[8px] uppercase tracking-[0.38em] text-[#A67C52] mt-1 font-medium">Affordable Luxury Boutique</span>
+            <div className="flex flex-col text-left min-w-0">
+              <span className="font-serif text-base sm:text-2xl tracking-[0.15em] sm:tracking-[0.2em] text-[#C9A66B] font-semibold leading-none uppercase truncate max-w-[180px] sm:max-w-none">
+                {settings.storeName || "GLITTER GLAM"}
+              </span>
+              <span className="hidden sm:block text-[8px] uppercase tracking-[0.38em] text-[#A67C52] mt-1 font-medium whitespace-nowrap">
+                Affordable Luxury Boutique
+              </span>
             </div>
           </button>
 
@@ -99,8 +108,8 @@ export default function Header({
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`text-xs uppercase tracking-[0.18em] font-medium transition-all py-2 border-b-2 hover:text-[#C9A66B] cursor-pointer ${
-                  activeTab === item.id 
-                    ? "text-[#C9A66B] border-[#C9A66B]" 
+                  activeTab === item.id
+                    ? "text-[#C9A66B] border-[#C9A66B]"
                     : "text-[#1D1D1D] border-transparent hover:border-[#C9A66B]/30"
                 }`}
               >
@@ -110,7 +119,7 @@ export default function Header({
           </nav>
 
           {/* Action Icons */}
-          <div className="flex items-center space-x-2 sm:space-x-4 ml-auto z-20 relative">
+          <div className="flex items-center space-x-1 sm:space-x-3 ml-auto z-20 relative shrink-0">
             
             {/* Search Trigger */}
             <div className="relative z-30">
@@ -134,7 +143,7 @@ export default function Header({
                   </button>
                 </form>
               ) : (
-                <button 
+                <button
                   onClick={openSearch}
                   className="p-2.5 text-[#1D1D1D] hover:text-[#C9A66B] transition-colors cursor-pointer rounded-full hover:bg-[#F4E6CF]/15"
                   title="Search Catalogue"
@@ -144,6 +153,21 @@ export default function Header({
                 </button>
               )}
             </div>
+
+            {/* Cart Trigger — opens the cart drawer with coupon + gift wrap. */}
+            <button
+              onClick={() => { logUI('cart_open'); onOpenCart(); }}
+              className="relative p-2.5 text-[#1D1D1D] hover:text-[#C9A66B] transition-colors cursor-pointer rounded-full hover:bg-[#F4E6CF]/15"
+              title="Open cart"
+              aria-label="Open shopping cart"
+            >
+              <ShoppingBag className="w-5 h-5 stroke-[1.5]" />
+              {cart.itemCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-[#C9A66B] text-white text-[9px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border border-white">
+                  {cart.itemCount > 9 ? '9+' : cart.itemCount}
+                </span>
+              )}
+            </button>
 
             {/* Logged in Admin Control Trigger */}
             {currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin' || currentUser.role === 'Super Admin') && (
@@ -201,7 +225,18 @@ export default function Header({
                 </button>
               ))}
 
-              {currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin') && (
+              <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenCart();
+                  }}
+                  className="text-left font-serif text-base tracking-wider py-3 border-l-2 pl-4 transition-all text-[#C9A66B] hover:text-[#A67C52] border-transparent flex items-center gap-2 cursor-pointer"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  <span>Cart {cart.itemCount > 0 && `(${cart.itemCount})`}</span>
+                </button>
+
+                {currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin') && (
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);

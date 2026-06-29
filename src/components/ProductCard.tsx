@@ -36,8 +36,8 @@ export default function ProductCard({
   const orderMessage = `*Order Inquiry*\n\n*Product Name:* ${product.name}\n*Product SKU:* ${product.sku}\n*Product Price:* ₹${product.discountPrice.toLocaleString('en-IN')}\n*Quantity:* 1\n*Product URL:* ${currentUrl}`;
 
   return (
-    <div className="product-card overflow-hidden flex flex-col justify-between group relative border border-[#C9A66B]/10 bg-white" id={`prod-card-${product.id}`}>
-      
+    <div className="product-card overflow-hidden flex flex-col justify-between group relative border border-[#C9A66B]/10 bg-white min-w-0 w-full" id={`prod-card-${product.id}`}>
+
       {/* Upper image stage */}
       <div className="relative aspect-square overflow-hidden bg-stone-100 cursor-pointer" onClick={() => onViewDetails(product)}>
         <img
@@ -93,7 +93,7 @@ export default function ProductCard({
             <span className="font-mono text-[8px] sm:text-[9px]">{product.sku}</span>
           </div>
 
-          <h3 className="font-serif text-[12px] sm:text-base text-[#1D1D1D] font-medium leading-snug group-hover:text-[#C9A66B] transition-colors line-clamp-2">
+          <h3 className="font-serif text-[12px] sm:text-base text-[#1D1D1D] font-medium leading-snug group-hover:text-[#C9A66B] transition-colors break-words line-clamp-2">
             {product.name}
           </h3>
 
@@ -104,7 +104,7 @@ export default function ProductCard({
             <span className="text-[10px] text-gray-400 font-medium">(5.0)</span>
           </div>
 
-          <p className="hidden sm:block text-stone-500 text-xs line-clamp-2 font-light italic leading-relaxed pt-1">
+          <p className="hidden sm:block text-stone-500 text-xs line-clamp-2 font-light italic leading-relaxed pt-1 break-words">
             {product.description}
           </p>
         </div>

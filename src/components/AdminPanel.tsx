@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Sliders, Check, FolderUp, Plus, Trash2, Save, Star, Video, MessageCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import { Product, HomeSettings, Review, VideoReview } from '../types';
+import { Package, Sliders, Check, FolderUp, Plus, Trash2, Save, Star, Video, MessageCircle, Eye, EyeOff, ShieldCheck, Tag, Gift } from 'lucide-react';
+import { Product, HomeSettings, Review, VideoReview, Coupon, GiftWrapOption } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import {
   loadReviews, saveReview, deleteReview,
   loadVideoReviews, saveVideoReview, deleteVideoReview
 } from '../lib/reviewsStore';
+import { loadCoupons, saveCoupons, loadGiftWrapOptions, saveGiftWrapOptions, deleteCoupon, upsertCoupon } from '../lib/featureStore';
 
 interface AdminPanelProps {
   products: Product[];
@@ -32,7 +33,7 @@ export default function AdminPanel({
   syncState = { status: 'disconnected', message: 'No sync status connected.' },
   isCloudLoading = false
 }: AdminPanelProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'inventory' | 'social' | 'settings'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'inventory' | 'social' | 'settings' | 'promotions'>('dashboard');
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [settingsForm, setSettingsForm] = useState<HomeSettings>(settings);
@@ -46,6 +47,21 @@ export default function AdminPanel({
   const [socialTab, setSocialTab] = useState<'reviews' | 'videos'>('reviews');
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [editingVideo, setEditingVideo] = useState<VideoReview | null>(null);
+
+  // Promotions (coupons + gift wrap)
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [giftOptions, setGiftOptions] = useState<GiftWrapOption[]>([]);
+  const [newCoupon, setNewCoupon] = useState<Partial<Coupon>>({
+    code: '', description: '', discountType: 'percent', discountValue: 10, minCartValue: 0, active: true,
+  });
+  const [newGift, setNewGift] = useState<Partial<GiftWrapOption>>({
+    name: '', description: '', price: 99, active: true,
+  });
+
+  useEffect(() => {
+    setCoupons(loadCoupons());
+    setGiftOptions(loadGiftWrapOptions());
+  }, [activeSubTab]);
 
   useEffect(() => {
     let mounted = true;
@@ -312,6 +328,7 @@ export default function AdminPanel({
         <button onClick={() => setActiveSubTab('dashboard')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'dashboard' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Dashboard Overview</button>
         <button onClick={() => setActiveSubTab('inventory')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'inventory' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Product Inventory</button>
         <button onClick={() => setActiveSubTab('social')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'social' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Reviews & Videos</button>
+        <button onClick={() => setActiveSubTab('promotions')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'promotions' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Promotions & Gift Wrap</button>
         <button onClick={() => setActiveSubTab('settings')} className={`block w-full text-left px-4 py-2 rounded text-sm ${activeSubTab === 'settings' ? 'bg-[#c9a66b] text-white' : 'text-gray-600 hover:bg-gray-200'}`}>Platform Settings</button>
       </div>
 
@@ -713,6 +730,144 @@ export default function AdminPanel({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeSubTab === 'promotions' && (
+          <div className="space-y-8">
+            <div className="border-b pb-4">
+              <h2 className="font-serif text-2xl font-bold text-stone-900 flex items-center gap-2"><Tag className="w-5 h-5" /> Promotions & Gift Wrap</h2>
+              <p className="text-sm text-gray-500 mt-1">Create coupon codes customers can apply at checkout, and configure gift-wrap options for the cart drawer.</p>
+            </div>
+
+            {/* Coupons */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-sm uppercase tracking-widest text-stone-700 border-b pb-2">Coupon Codes</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newCoupon.code || !newCoupon.discountValue) return;
+                  const created: Coupon = {
+                    id: uuidv4(),
+                    code: String(newCoupon.code).toUpperCase().trim(),
+                    description: String(newCoupon.description || '').trim() || 'No description',
+                    discountType: (newCoupon.discountType as any) || 'percent',
+                    discountValue: Number(newCoupon.discountValue) || 0,
+                    minCartValue: Number(newCoupon.minCartValue) || 0,
+                    active: newCoupon.active ?? true,
+                    expiresAt: newCoupon.expiresAt || undefined,
+                    createdAt: new Date().toISOString(),
+                  };
+                  const next = upsertCoupon(created);
+                  setCoupons(loadCoupons());
+                  setNewCoupon({ code: '', description: '', discountType: 'percent', discountValue: 10, minCartValue: 0, active: true });
+                  alert(`Coupon ${next.code} saved.`);
+                }}
+                className="bg-stone-50 p-4 rounded border border-stone-200 space-y-3"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input required type="text" placeholder="CODE" value={newCoupon.code || ''} onChange={e => setNewCoupon({...newCoupon, code: e.target.value})} className="border p-2 text-sm rounded bg-white font-mono uppercase" />
+                  <select value={newCoupon.discountType} onChange={e => setNewCoupon({...newCoupon, discountType: e.target.value as any})} className="border p-2 text-sm rounded bg-white">
+                    <option value="percent">% off</option>
+                    <option value="flat">Flat ₹ off</option>
+                  </select>
+                  <input required type="number" min={0} placeholder="Value" value={newCoupon.discountValue} onChange={e => setNewCoupon({...newCoupon, discountValue: Number(e.target.value)})} className="border p-2 text-sm rounded bg-white" />
+                </div>
+                <input type="text" placeholder="Short description shown to customer" value={newCoupon.description || ''} onChange={e => setNewCoupon({...newCoupon, description: e.target.value})} className="w-full border p-2 text-sm rounded bg-white" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input type="number" min={0} placeholder="Min cart value" value={newCoupon.minCartValue} onChange={e => setNewCoupon({...newCoupon, minCartValue: Number(e.target.value)})} className="border p-2 text-sm rounded bg-white" />
+                  <input type="date" value={typeof newCoupon.expiresAt === 'string' ? newCoupon.expiresAt.slice(0, 10) : ''} onChange={e => setNewCoupon({...newCoupon, expiresAt: e.target.value ? new Date(e.target.value).toISOString() : undefined})} className="border p-2 text-sm rounded bg-white" />
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newCoupon.active ?? true} onChange={e => setNewCoupon({...newCoupon, active: e.target.checked})} className="accent-[#C9A66B]" /> Active</label>
+                </div>
+                <div className="flex justify-end">
+                  <button type="submit" className="bg-[#1D1D1D] text-[#C9A66B] hover:bg-black px-5 py-2 text-xs uppercase tracking-widest font-bold rounded inline-flex items-center gap-2"><Plus className="w-4 h-4" /> Add Coupon</button>
+                </div>
+              </form>
+
+              <div className="space-y-2">
+                {coupons.length === 0 && <p className="text-sm text-stone-500 italic text-center py-6 bg-stone-50 rounded">No coupons yet.</p>}
+                {coupons.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 p-3 border border-stone-200 rounded bg-white">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-stone-900 bg-stone-100 px-2 py-0.5 rounded">{c.code}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${c.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-500'}`}>{c.active ? 'Active' : 'Inactive'}</span>
+                        <span className="text-xs text-stone-500">{c.discountType === 'percent' ? `${c.discountValue}%` : `₹${c.discountValue}`} off</span>
+                        {c.minCartValue > 0 && <span className="text-xs text-stone-500">min ₹{c.minCartValue}</span>}
+                        {c.expiresAt && <span className="text-xs text-stone-500">expires {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                      </div>
+                      <p className="text-xs text-stone-600 mt-1">{c.description}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        upsertCoupon({ ...c, active: !c.active });
+                        setCoupons(loadCoupons());
+                      }}
+                      className="text-[10px] uppercase font-bold text-stone-500 hover:text-stone-900"
+                    >{c.active ? 'Disable' : 'Enable'}</button>
+                    <button
+                      onClick={() => { if (confirm(`Delete coupon ${c.code}?`)) { deleteCoupon(c.id); setCoupons(loadCoupons()); } }}
+                      className="text-stone-300 hover:text-red-500 p-1.5"
+                      aria-label="Delete coupon"
+                    ><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Gift Wrap */}
+            <div className="space-y-4">
+              <h3 className="font-bold text-sm uppercase tracking-widest text-stone-700 border-b pb-2 flex items-center gap-2"><Gift className="w-4 h-4" /> Gift Wrap Options</h3>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newGift.name || !newGift.price) return;
+                  const opt: GiftWrapOption = {
+                    id: uuidv4(),
+                    name: String(newGift.name).trim(),
+                    description: String(newGift.description || '').trim(),
+                    price: Number(newGift.price) || 0,
+                    image: newGift.image || undefined,
+                    active: newGift.active ?? true,
+                  };
+                  const next = [...loadGiftWrapOptions(), opt];
+                  saveGiftWrapOptions(next);
+                  setGiftOptions(next);
+                  setNewGift({ name: '', description: '', price: 99, active: true });
+                  alert(`Gift wrap "${opt.name}" added.`);
+                }}
+                className="bg-stone-50 p-4 rounded border border-stone-200 space-y-3"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input required type="text" placeholder="Name (e.g. Velvet Box)" value={newGift.name || ''} onChange={e => setNewGift({...newGift, name: e.target.value})} className="border p-2 text-sm rounded bg-white" />
+                  <input required type="number" min={0} placeholder="Price ₹" value={newGift.price} onChange={e => setNewGift({...newGift, price: Number(e.target.value)})} className="border p-2 text-sm rounded bg-white" />
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newGift.active ?? true} onChange={e => setNewGift({...newGift, active: e.target.checked})} className="accent-[#C9A66B]" /> Active</label>
+                </div>
+                <input type="text" placeholder="Short description" value={newGift.description || ''} onChange={e => setNewGift({...newGift, description: e.target.value})} className="w-full border p-2 text-sm rounded bg-white" />
+                <div className="flex justify-end">
+                  <button type="submit" className="bg-[#1D1D1D] text-[#C9A66B] hover:bg-black px-5 py-2 text-xs uppercase tracking-widest font-bold rounded inline-flex items-center gap-2"><Plus className="w-4 h-4" /> Add Gift Wrap</button>
+                </div>
+              </form>
+
+              <div className="space-y-2">
+                {giftOptions.length === 0 && <p className="text-sm text-stone-500 italic text-center py-6 bg-stone-50 rounded">No gift wrap options yet.</p>}
+                {giftOptions.map((opt, idx) => (
+                  <div key={opt.id} className="flex items-center gap-3 p-3 border border-stone-200 rounded bg-white">
+                    <Gift className="w-5 h-5 text-[#C9A66B] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-stone-900">{opt.name}</span>
+                        <span className="text-xs text-[#C9A66B] font-bold">+₹{opt.price}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${opt.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-500'}`}>{opt.active ? 'Active' : 'Inactive'}</span>
+                      </div>
+                      {opt.description && <p className="text-xs text-stone-600 mt-0.5">{opt.description}</p>}
+                    </div>
+                    <button onClick={() => { const next = giftOptions.map((g, i) => i === idx ? { ...g, active: !g.active } : g); saveGiftWrapOptions(next); setGiftOptions(next); }} className="text-[10px] uppercase font-bold text-stone-500 hover:text-stone-900">{opt.active ? 'Disable' : 'Enable'}</button>
+                    <button onClick={() => { if (!confirm('Delete this gift wrap option?')) return; const next = giftOptions.filter((_, i) => i !== idx); saveGiftWrapOptions(next); setGiftOptions(next); }} className="text-stone-300 hover:text-red-500 p-1.5" aria-label="Delete gift wrap option"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

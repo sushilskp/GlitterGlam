@@ -9,6 +9,11 @@ import Policies from './components/Policies';
 import FaqSection from './components/FaqSection';
 import Footer from './components/Footer';
 import AdminPanel from './components/AdminPanel';
+import AIChatbot from './components/AIChatbot';
+import CartDrawer from './components/CartDrawer';
+import OfferBanner from './components/OfferBanner';
+import FeedbackSection from './components/FeedbackSection';
+import { useScrollReveal } from './lib/useScrollReveal';
 import { MessageSquare, ShieldCheck, Store, MapPin, Clock, Phone, Filter } from 'lucide-react';
 import { cloudDb, subscribeToSyncStatus, SyncState } from './lib/supabaseSync';
 import { supabase, isSupabaseConfigured, UserRole } from './lib/supabaseClient';
@@ -179,6 +184,12 @@ export default function App() {
   }, []);
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  // Wire scroll-reveal animations to the active tab — every time the
+  // customer switches tab, any new `.reveal` elements become visible as
+  // they scroll into view.
+  useScrollReveal([activeTab, products.length]);
 
   // Shop Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -373,7 +384,7 @@ export default function App() {
         <div id="admin-workspace-header" className="bg-[#1D1D1D] border-b border-[#C9A66B]/30 py-4 px-6 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-95 text-[#FDFBF8]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#C9A66B]/15 rounded text-[#C9A66B] font-mono text-base font-bold">
-              Ã¢Å¡â„¢Ã¯Â¸Â
+              ♥
             </div>
             <div>
               <h1 className="font-serif text-lg tracking-wider text-[#C9A66B] font-bold leading-none uppercase">Glitter Glam Back-Office</h1>
@@ -384,7 +395,7 @@ export default function App() {
             onClick={() => setActiveTab("home")}
             className="bg-stone-800 hover:bg-[#C9A66B] text-white hover:text-[#1D1D1D] px-4 py-2 text-xs tracking-wider uppercase font-bold flex items-center gap-2 transition-all cursor-pointer border border-[#C9A66B]/20"
           >
-            Ã¢â€ Â Back to Customer Boutique
+            ← Back to Customer Boutique
           </button>
         </div>
       ) : (
@@ -400,9 +411,13 @@ export default function App() {
           onOpenAdmin={() => {
             setActiveTab("admin");
           }}
+          onOpenCart={() => setCartOpen(true)}
           currentUser={authSession}
         />
       )}
+
+      {/* 1b. Top offer ribbon — auto-rotates active coupons, dismissable. */}
+      {activeTab !== 'admin' && <OfferBanner />}
 
       {/* 2. Main Page Content views */}
       <main className="flex-1 w-full">
@@ -426,29 +441,30 @@ export default function App() {
 
             {/* Curated Best Sellers highlight sections */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-              <div className="text-center max-w-xl mx-auto mb-12">
-                <span className="text-[10px] uppercase tracking-[0.4em] text-[#A67C52] font-semibold">Featured Ornaments</span>
-                <h2 className="font-serif text-3xl text-[#1D1D1D] mt-2 font-bold leading-normal">The Founders' Select Favorites</h2>
+              <div className="text-center max-w-xl mx-auto mb-12 reveal">
+                <span className="text-[10px] uppercase tracking-[0.4em] text-[#A67C52] font-semibold break-words">Featured Ornaments</span>
+                <h2 className="font-serif text-2xl sm:text-3xl text-[#1D1D1D] mt-2 font-bold leading-tight sm:leading-normal break-words">The Founders' Select Favorites</h2>
                 <div className="w-12 h-[1.5px] bg-[#C9A66B] mx-auto mt-4" />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 lg:gap-8">
                 {(() => {
                   const featuredList = products.filter(p => p.isFeatured);
-                  return featuredList.map((prod) => (
-                    <ProductCard
-                      key={prod.id}
-                      product={prod}
-                      onViewDetails={(p) => setSelectedProduct(p)}
-                      whatsappContact={settings.whatsappContact}
-                    />
+                  return featuredList.map((prod, idx) => (
+                    <div key={prod.id} className={`reveal reveal-delay-${(idx % 4) + 1} min-w-0`}>
+                      <ProductCard
+                        product={prod}
+                        onViewDetails={(p) => setSelectedProduct(p)}
+                        whatsappContact={settings.whatsappContact}
+                      />
+                    </div>
                   ));
                 })()}
               </div>
             </div>
 
             {/* In-Person Store Reassurance banner */}
-            <div className="bg-[#1D1D1D] text-white py-16 relative overflow-hidden border-y border-[#C9A66B]/20">
+            <div className="bg-[#1D1D1D] text-white py-16 relative overflow-hidden border-y border-[#C9A66B]/20 reveal">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
                 <div className="lg:col-span-8 space-y-4 text-center lg:text-left">
                   <span className="text-[10px] text-[#C9A66B] uppercase tracking-[0.35em] font-extrabold flex items-center justify-center lg:justify-start gap-2">
@@ -462,7 +478,7 @@ export default function App() {
                   </p>
                 </div>
                 <div className="lg:col-span-4 text-center lg:text-right">
-                  <button 
+                  <button
                     onClick={() => setActiveTab("visit")}
                     className="bg-[#C9A66B] hover:bg-[#A67C52] text-white px-8 py-3.5 text-xs font-bold uppercase tracking-widest shadow-md transition-colors"
                   >
@@ -473,7 +489,7 @@ export default function App() {
             </div>
 
             {/* Trust Policies banner blocks */}
-            <Policies />
+            <div className="reveal"><Policies /></div>
 
           </div>
         )}
@@ -574,7 +590,7 @@ export default function App() {
                   <div className="space-y-2 flex flex-col">
                     <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                       <span>Price Range Limit</span>
-                      <span className="text-[#C9A66B]">Under Ã¢â€šÂ¹{maxPrice.toLocaleString('en-IN')}</span>
+                      <span className="text-[#C9A66B]">Under ₹{maxPrice.toLocaleString('en-IN')}</span>
                     </div>
                     <input 
                       type="range"
@@ -586,8 +602,8 @@ export default function App() {
                       className="w-full accent-[#C9A66B] cursor-pointer"
                     />
                     <div className="flex justify-between text-[9px] text-stone-400 font-mono">
-                      <span>Min: Ã¢â€šÂ¹800</span>
-                      <span>Max: Ã¢â€šÂ¹7,000</span>
+                      <span>Min: ₹800</span>
+                      <span>Max: ₹7,000</span>
                     </div>
                   </div>
 
@@ -778,7 +794,7 @@ export default function App() {
                 {/* Section 1: About Glitter Glam */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> About <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Glitter Glam</span>
+                    <span className="text-[#C9A66B]">✦</span> About <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Glitter Glam</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
                     Founded by design Founder <strong className="font-medium text-[#1D1D1D]">Pooja</strong> and Manager <strong className="font-medium text-[#1D1D1D]">Pranita</strong>, <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is a contemporary luxury brand redefining access to premium Indian craftsmanship.
@@ -788,7 +804,7 @@ export default function App() {
                 {/* Section 2: The Luxury Gap */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> The <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Luxury Gap</span>
+                    <span className="text-[#C9A66B]">✦</span> The <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Luxury Gap</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
                     For too long, the jewelry market forced consumers to choose between prohibitively expensive fine gold and poorly finished, short-lived fashion jewelry. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> was established to eliminate this compromise.
@@ -798,10 +814,10 @@ export default function App() {
                 {/* Section 3: Our Innovation */}
                 <div className="space-y-2">
                   <h3 className="font-serif text-lg font-bold text-[#1D1D1D] flex items-center gap-2">
-                    <span className="text-[#C9A66B]">Ã¢Å“Â¦</span> Our <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Innovation</span>
+                    <span className="text-[#C9A66B]">✦</span> Our <span className="font-sans font-bold uppercase tracking-wider text-xs px-2 py-0.5 bg-[#C9A66B]/10 rounded text-[#A67C52]">Innovation</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-light">
-                    We specialize in an advanced <strong className="font-medium text-[#1D1D1D]">micro-fusion process</strong>, crafting high-quality copper alloy bases with dense, premium artificial jewelry coatings and exceptional hallmark-grade polishes. The result is an exquisite collection that looks, feels, and endures like fine luxury jewelryÃ¢â‚¬â€offered at a minimal, highly accessible price point. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is designed for the modern woman who demands exceptional quality, intelligent design, and affordable luxury for all.
+                    We specialize in an advanced <strong className="font-medium text-[#1D1D1D]">micro-fusion process</strong>, crafting high-quality copper alloy bases with dense, premium artificial jewelry coatings and exceptional hallmark-grade polishes. The result is an exquisite collection that looks, feels, and endures like fine luxury jewelry—offered at a minimal, highly accessible price point. <strong className="font-medium text-[#1D1D1D]">Glitter Glam</strong> is designed for the modern woman who demands exceptional quality, intelligent design, and affordable luxury for all.
                   </p>
                 </div>
 
@@ -813,11 +829,11 @@ export default function App() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
                   <div className="border border-[#C9A66B]/15 p-4 rounded-sm">
-                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">Ã¢Å“Â§</i> Authentic Polish</h4>
+                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">✧</i> Authentic Polish</h4>
                     <p className="text-[11px] text-gray-500 mt-1">Multi-layered gold-microplating ensuring long-standing tarnish-resistant luster.</p>
                   </div>
                   <div className="border border-[#C9A66B]/15 p-4 rounded-sm">
-                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">Ã¢Å“Â§</i> Handcrafted Heritage</h4>
+                    <h4 className="font-serif text-sm text-[#C9A66B] font-bold"><i className="mr-1">✧</i> Handcrafted Heritage</h4>
                     <p className="text-[11px] text-gray-500 mt-1">Sourced from master Indian karigars and hand-polished with utmost care.</p>
                   </div>
                 </div>
@@ -931,7 +947,7 @@ export default function App() {
                     onClick={() => setActiveTab('home')}
                     className="text-stone-400 hover:text-white font-medium"
                   >
-                    Ã¢â€ Â Browse Storefront
+                    ← Browse Storefront
                   </button>
                   <span className="text-stone-700">|</span>
                   <button
@@ -977,24 +993,6 @@ export default function App() {
         />
       )}
 
-      {/* 4. Persistent Floating WhatsApp Chat Widget (Logistics & Customer Support requirements) */}
-      {activeTab !== 'admin' && (
-        <a
-          href={`https://wa.me/${settings.whatsappContact.replace(/\D/g, '')}?text=${encodeURIComponent("Hello Glitter Glam Boutique! I am inquiring about your premium artificial and 1-Gram gold jewelry collections. Can you guide me for a custom order?")}`}
-          target="_blank"
-          rel="noreferrer"
-          className="fixed bottom-6 right-6 z-40 bg-[#25D366] hover:bg-[#128C7E] text-white p-3.5 rounded-full shadow-2xl transition-all hover:scale-110 flex items-center justify-center group"
-          title={`Chat on WhatsApp ${settings.whatsappContact}`}
-        >
-          {/* Pulsing indicator block */}
-          <span className="absolute inset-0 bg-[#25D366]/40 rounded-full animate-ping z-0" />
-          <span className="relative z-10 flex items-center gap-1.5 text-xs font-bold font-serif uppercase tracking-wider">
-            <MessageSquare className="w-5 h-5 fill-current" />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-[140px] transition-all duration-300">WhatsApp Help</span>
-          </span>
-        </a>
-      )}
-
       {/* 6. Footer coordinates cards */}
       {activeTab !== 'admin' && settings.announcementText && (
         <Footer 
@@ -1005,6 +1003,19 @@ export default function App() {
           }}
         />
       )}
+
+      {/* 7. Feedback form — customer voice section before footer */}
+      {activeTab !== 'admin' && <FeedbackSection />}
+
+      {/* 8. Cart Drawer — slides in from the right, hosts coupon + gift wrap + WA checkout */}
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        whatsappContact={settings.whatsappContact}
+      />
+
+      {/* 9. AI Stylist chatbot — always available except in admin */}
+      {activeTab !== 'admin' && <AIChatbot products={products} />}
 
     </div>
   );

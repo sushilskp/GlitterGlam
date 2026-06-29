@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   X, MessageSquare, Shield, CheckCircle, Info, Star, Heart, Share2,
-  ChevronLeft, ChevronRight, Truck, RotateCcw, Package, Play, Plus
+  ChevronLeft, ChevronRight, Truck, RotateCcw, Package, Play, Plus, ShoppingBag, Gift, Tag
 } from 'lucide-react';
 import { Product, Review, VideoReview } from '../types';
 import ProductCard from './ProductCard';
@@ -10,6 +10,8 @@ import {
   loadVideoReviews, toEmbedUrl
 } from '../lib/reviewsStore';
 import { v4 as uuidv4 } from 'uuid';
+import { addToCart } from '../lib/cartStore';
+import { getActiveGiftWrapOptions, loadCoupons } from '../lib/featureStore';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -39,6 +41,10 @@ export default function ProductDetailModal({
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '', location: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
+
+  const activeOffers = useMemo(() => loadCoupons().filter(c => c.active).slice(0, 2), []);
+  const giftWrapOptions = useMemo(() => getActiveGiftWrapOptions().slice(0, 1), []);
 
   useEffect(() => {
     let mounted = true;
@@ -105,6 +111,13 @@ export default function ProductDetailModal({
     setReviewForm({ name: '', rating: 5, comment: '', location: '' });
     setShowReviewForm(false);
     setSubmittingReview(false);
+  };
+
+  const handleAddToCart = () => {
+    if (isOutOfStock) return;
+    addToCart(product, selectedSize, quantity);
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 1800);
   };
 
   return (
@@ -258,6 +271,41 @@ export default function ProductDetailModal({
                 </ul>
               )}
 
+              {/* Live offers + gift wrap callouts on the product detail page. */}
+              {(activeOffers.length > 0 || giftWrapOptions.length > 0) && (
+                <div className="space-y-2">
+                  {activeOffers.length > 0 && (
+                    <div className="flex items-start gap-2 p-2.5 bg-amber-50/60 border border-amber-200 rounded-lg text-xs">
+                      <Tag className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-bold text-amber-900">Save more with coupons!</p>
+                        <p className="text-amber-800 mt-0.5 leading-snug">
+                          Apply{' '}
+                          {activeOffers.map((c, i) => (
+                            <React.Fragment key={c.id}>
+                              {i > 0 && ' or '}
+                              <span className="font-mono font-bold">{c.code}</span>
+                            </React.Fragment>
+                          ))}{' '}
+                          at checkout for instant savings.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {giftWrapOptions.length > 0 && (
+                    <div className="flex items-start gap-2 p-2.5 bg-[#C9A66B]/5 border border-[#C9A66B]/30 rounded-lg text-xs">
+                      <Gift className="w-4 h-4 text-[#A67C52] mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="font-bold text-[#A67C52]">Make it a gift</p>
+                        <p className="text-stone-700 mt-0.5 leading-snug">
+                          Add the {giftWrapOptions[0].name} at checkout for just ₹{giftWrapOptions[0].price} — perfect for festive gifting.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {product.sizeOptions.length > 0 && (
                 <div>
                   <p className="text-xs uppercase tracking-widest text-stone-500 font-bold mb-2">
@@ -304,17 +352,27 @@ export default function ProductDetailModal({
                     Out of Stock
                   </button>
                 ) : (
-                  <a
-                    href={`https://wa.me/${contactNo}?text=${encodeURIComponent(orderMessage)}`}
-                    target="_blank" rel="noreferrer"
-                    onClick={onClose}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 text-xs sm:text-sm uppercase tracking-widest font-bold text-white bg-[#25D366] hover:bg-[#1DA851] rounded shadow-lg transition-colors"
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 text-xs sm:text-sm uppercase tracking-widest font-bold text-white bg-[#1D1D1D] hover:bg-[#C9A66B] rounded shadow-lg transition-colors"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    Order on WhatsApp
-                  </a>
+                    <ShoppingBag className="w-4 h-4" />
+                    {addedToCart ? 'Added!' : 'Add to Cart'}
+                  </button>
                 )}
               </div>
+
+              {isOutOfStock ? null : (
+                <a
+                  href={`https://wa.me/${contactNo}?text=${encodeURIComponent(orderMessage)}`}
+                  target="_blank" rel="noreferrer"
+                  onClick={onClose}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-xs sm:text-sm uppercase tracking-widest font-bold text-white bg-[#25D366] hover:bg-[#1DA851] rounded shadow-lg transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Order on WhatsApp
+                </a>
+              )}
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div className="flex flex-col items-center gap-1 p-3 bg-stone-50 rounded border border-stone-100">

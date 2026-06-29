@@ -85,3 +85,46 @@ export interface HomeSettings {
   trustPartners?: { name: string; logoUrl: string; href?: string }[];
   reviews?: { id: string; name: string; rating: number; text: string; source?: string }[];
 }
+
+// ---------- E-commerce growth features (localStorage-backed) ----------
+
+export interface Coupon {
+  id: string;
+  code: string;            // e.g. "GLAM10"
+  description: string;
+  discountType: 'percent' | 'flat';
+  discountValue: number;   // 10 = 10% or ₹10
+  minCartValue: number;    // minimum cart subtotal required
+  active: boolean;
+  expiresAt?: string;      // ISO date
+  createdAt: string;
+}
+
+export interface Feedback {
+  id: string;
+  name: string;
+  email?: string;
+  rating: number;          // 1-5
+  message: string;
+  page?: string;           // which page they were on
+  createdAt: string;
+}
+
+export interface GiftWrapOption {
+  id: string;
+  name: string;            // "Royal Velvet Box"
+  description: string;
+  price: number;           // added per order
+  image?: string;          // optional cover image
+  active: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+  // Optional product references returned by the assistant so the chat bubble
+  // can render rich product cards inside the conversation.
+  productRefs?: string[];  // product SKUs the assistant mentioned
+}
