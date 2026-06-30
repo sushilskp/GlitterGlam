@@ -159,8 +159,14 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   action TEXT NOT NULL,
   description TEXT,
   client_ip TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Defensive column adds so the new client fields always exist
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address TEXT;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent TEXT;
 
 -- ============================================================================
 -- 9. reviews
@@ -172,6 +178,34 @@ CREATE TABLE IF NOT EXISTS reviews (
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT DEFAULT '',
   product_sku TEXT,
+  approved BOOLEAN DEFAULT true,
+  verified BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Defensive column adds for legacy reviews tables
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT true;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT true;
+
+-- ============================================================================
+-- 9b. video_reviews
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS video_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_sku TEXT,
+  title TEXT NOT NULL,
+  url TEXT NOT NULL,
+  thumbnail TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================================================
+-- 10b. newsletter_subscribers (powers the footer subscribe form)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  source TEXT DEFAULT 'footer',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -250,6 +284,8 @@ ALTER TABLE audit_logs     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tickets        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE video_reviews       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE newsletter_subscribers ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- 14. Policies — created only when missing, so this is fully re-runnable.
@@ -358,6 +394,24 @@ SELECT create_policy_if_missing('public', 'audit_logs',
   'Public or authenticated select audit_logs',
   $SQL$CREATE POLICY "Public or authenticated select audit_logs" ON audit_logs FOR SELECT USING (true)$SQL$);
 
+-- ---- video_reviews ----
+SELECT create_policy_if_missing('public', 'video_reviews',
+  'Allow public read of video_reviews',
+  $SQL$CREATE POLICY "Allow public read of video_reviews" ON video_reviews FOR SELECT USING (true)$SQL$);
+
+SELECT create_policy_if_missing('public', 'video_reviews',
+  'Allow public insert of video_reviews',
+  $SQL$CREATE POLICY "Allow public insert of video_reviews" ON video_reviews FOR INSERT WITH CHECK (true)$SQL$);
+
+-- ---- newsletter_subscribers ----
+SELECT create_policy_if_missing('public', 'newsletter_subscribers',
+  'Allow public insert on newsletter_subscribers',
+  $SQL$CREATE POLICY "Allow public insert on newsletter_subscribers" ON newsletter_subscribers FOR INSERT WITH CHECK (true)$SQL$);
+
+SELECT create_policy_if_missing('public', 'newsletter_subscribers',
+  'Allow public read on newsletter_subscribers',
+  $SQL$CREATE POLICY "Allow public read on newsletter_subscribers" ON newsletter_subscribers FOR SELECT USING (true)$SQL$);
+
 -- ---- Authenticated-admin full CRUD on general tables ----
 SELECT create_policy_if_missing('public', 'customers',
   'Full admin power on customers',
@@ -402,6 +456,14 @@ SELECT create_policy_if_missing('public', 'tickets',
 SELECT create_policy_if_missing('public', 'settings',
   'Full admin power on settings',
   $SQL$CREATE POLICY "Full admin power on settings" ON settings TO authenticated USING (true)$SQL$);
+
+SELECT create_policy_if_missing('public', 'video_reviews',
+  'Full admin power on video_reviews',
+  $SQL$CREATE POLICY "Full admin power on video_reviews" ON video_reviews TO authenticated USING (true)$SQL$);
+
+SELECT create_policy_if_missing('public', 'newsletter_subscribers',
+  'Full admin power on newsletter_subscribers',
+  $SQL$CREATE POLICY "Full admin power on newsletter_subscribers" ON newsletter_subscribers TO authenticated USING (true)$SQL$);
 
 -- ============================================================================
 -- 15. Storage policies (idempotent via the same helper)

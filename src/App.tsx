@@ -18,6 +18,7 @@ import { MessageSquare, ShieldCheck, Store, MapPin, Clock, Phone, Filter } from 
 import { cloudDb, subscribeToSyncStatus, SyncState } from './lib/supabaseSync';
 import { supabase, isSupabaseConfigured, UserRole } from './lib/supabaseClient';
 import AdminAuth from './components/AdminAuth';
+import { pathToTab, tabToPath } from './lib/router';
 import founderPoojaImg from '../assets/founder.jpeg';
 import cofounderPranitaImg from '../assets/co-founder.jpeg';
 import visitingBg from '../assets/Neakless.jpeg';
@@ -58,36 +59,29 @@ export default function App() {
   const [syncState, setSyncState] = useState<SyncState>({ status: 'loading', message: 'Checking data store...' });
   const [isCloudLoading, setIsCloudLoading] = useState(false);
 
-  // Navigation & Filtering States
+  // Navigation & Filtering States — every section opens as its own URL.
+  // See src/lib/router.ts for the path <-> tab mapping.
   const [activeTab, setActiveTabState] = useState<string>(() => {
-    const path = window.location.pathname;
-    if (path === '/admin' || path === '/admin/') {
-      return "admin";
-    }
-    return "home";
+    return pathToTab(window.location.pathname);
   });
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
-    if (tab === 'admin') {
-      if (window.location.pathname !== '/admin') {
-        window.history.pushState({}, '', '/admin');
-      }
-    } else {
-      if (window.location.pathname !== '/') {
-        window.history.pushState({}, '', '/');
-      }
+    const targetPath = tabToPath(tab);
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+    // Always jump to the top on a new page so the header options line up
+    // with what the user just clicked — same behaviour as a real multi-page
+    // site.
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      if (path === '/admin' || path === '/admin/') {
-        setActiveTabState("admin");
-      } else {
-        setActiveTabState("home");
-      }
+      setActiveTabState(pathToTab(window.location.pathname));
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
@@ -882,6 +876,32 @@ export default function App() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* TAB G: 404 — fallback for any URL that does not match a known page */}
+        {activeTab === 'notFound' && (
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center animate-fade">
+            <span className="text-[10px] uppercase tracking-[0.4em] text-[#A67C52] font-semibold block">Error 404</span>
+            <h1 className="font-serif text-4xl sm:text-5xl text-[#1D1D1D] mt-3 font-bold">This Page Sparkled Out of View</h1>
+            <div className="w-12 h-[1.5px] bg-[#C9A66B] mx-auto mt-4" />
+            <p className="text-stone-500 text-sm font-light mt-6 max-w-xl mx-auto">
+              The page you tried to open doesn't exist on the Glitter Glam boutique. Use the links below to continue browsing the catalogue.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+              <button
+                onClick={() => setActiveTab("home")}
+                className="bg-[#C9A66B] hover:bg-[#A67C52] text-white text-xs uppercase tracking-widest font-bold px-6 py-3 transition-colors"
+              >
+                Back to Home
+              </button>
+              <button
+                onClick={() => setActiveTab("shop")}
+                className="bg-[#1D1D1D] hover:bg-[#C9A66B] text-white text-xs uppercase tracking-widest font-bold px-6 py-3 transition-colors"
+              >
+                Browse Collections
+              </button>
             </div>
           </div>
         )}

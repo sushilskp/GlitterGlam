@@ -20,6 +20,13 @@ export default function Footer({ settings, activeTab, setActiveTab }: FooterProp
     setSubEmail("");
   };
 
+  const handleNav = (tab: string) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   return (
     <footer className="bg-[#1D1D1D] text-white pt-16 pb-8 border-t border-[#C9A66B]/15 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-12 pb-12 border-b border-stone-800">
@@ -55,16 +62,16 @@ export default function Footer({ settings, activeTab, setActiveTab }: FooterProp
           <h4 className="font-serif text-sm tracking-[0.16em] text-[#F4E6CF] font-semibold uppercase">Explore Collections</h4>
           <ul className="space-y-2.5 text-xs text-stone-400 uppercase tracking-widest font-medium">
             <li>
-              <button onClick={() => setActiveTab("home")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">Home Dashboard</button>
+              <button onClick={() => handleNav("home")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">Home Dashboard</button>
             </li>
             <li>
-              <button onClick={() => setActiveTab("shop")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">E-Boutique Store</button>
+              <button onClick={() => handleNav("shop")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">E-Boutique Store</button>
             </li>
             <li>
-              <button onClick={() => setActiveTab("about")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">Founders' Story</button>
+              <button onClick={() => handleNav("about")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">Founders' Story</button>
             </li>
             <li>
-              <button onClick={() => setActiveTab("faq")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">FAQs & Care Guides</button>
+              <button onClick={() => handleNav("faq")} className="hover:text-[#C9A66B] transition-colors cursor-pointer block">FAQs & Care Guides</button>
             </li>
           </ul>
         </div>
@@ -122,7 +129,7 @@ export default function Footer({ settings, activeTab, setActiveTab }: FooterProp
           <p>© 2026 {settings.storeName || 'Glitter Glam'}. {settings.storeAddress ? settings.storeAddress.split(',')[0] : 'Sass Nagar, Mohali, Punjab'}. All rights reserved.</p>
           <span className="text-stone-700 hidden sm:inline">|</span>
           <button 
-            onClick={() => setActiveTab("admin")} 
+            onClick={() => handleNav("admin")} 
             className="font-medium text-stone-400 hover:text-[#C9A66B] uppercase text-[10px] tracking-widest transition-colors cursor-pointer"
           >
             Staff Portal

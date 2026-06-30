@@ -51,6 +51,16 @@ export default function Header({
   const handleLogoClick = () => {
     logUI('logo_click', { storeName: settings.storeName || 'Glitter Glam' });
     setActiveTab('home');
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleNav = (tab: string) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const navItems = [
@@ -106,7 +116,7 @@ export default function Header({
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleNav(item.id)}
                 className={`text-xs uppercase tracking-[0.18em] font-medium transition-all py-2 border-b-2 hover:text-[#C9A66B] cursor-pointer ${
                   activeTab === item.id
                     ? "text-[#C9A66B] border-[#C9A66B]"
@@ -212,12 +222,12 @@ export default function Header({
                 <button
                   key={item.id}
                   onClick={() => {
-                    setActiveTab(item.id);
+                    handleNav(item.id);
                     setMobileMenuOpen(false);
                   }}
                   className={`text-left font-serif text-lg tracking-wider py-2 border-l-2 pl-4 transition-all ${
-                    activeTab === item.id 
-                      ? "text-[#C9A66B] border-[#C9A66B] font-semibold" 
+                    activeTab === item.id
+                      ? "text-[#C9A66B] border-[#C9A66B] font-semibold"
                       : "text-[#1D1D1D] border-transparent hover:text-[#C9A66B]"
                   }`}
                 >
