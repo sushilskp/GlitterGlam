@@ -15,10 +15,21 @@ export default function CartDrawer({ open, onClose, whatsappContact }: CartDrawe
   const [checkoutForm, setCheckoutForm] = useState({ name: '', city: '', note: '' });
   const [showCheckout, setShowCheckout] = useState(false);
 
+  const [formError, setFormError] = useState('');
+
   function placeOrder() {
+    if (!checkoutForm.name.trim()) {
+      setFormError('Please enter your name to continue.');
+      return;
+    }
+    if (!checkoutForm.city.trim()) {
+      setFormError('Please enter your city / pincode to continue.');
+      return;
+    }
+    setFormError('');
     const { url } = buildCartWhatsAppUrl(whatsappContact, {
-      name: checkoutForm.name || undefined,
-      city: checkoutForm.city || undefined,
+      name: checkoutForm.name,
+      city: checkoutForm.city,
       note: checkoutForm.note || undefined,
     });
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -158,27 +169,47 @@ export default function CartDrawer({ open, onClose, whatsappContact }: CartDrawe
 
             {showCheckout && (
               <div className="border-t border-stone-200 pt-3 space-y-2 tab-fade-in">
-                <input
-                  type="text"
-                  placeholder="Your name (optional)"
-                  value={checkoutForm.name}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-stone-300 rounded text-sm"
-                />
-                <input
-                  type="text"
-                  placeholder="City / Pincode (optional)"
-                  value={checkoutForm.city}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, city: e.target.value })}
-                  className="w-full px-3 py-2 border border-stone-300 rounded text-sm"
-                />
-                <textarea
-                  placeholder="Note for the founders (customisation, gift message...)"
-                  rows={2}
-                  value={checkoutForm.note}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, note: e.target.value })}
-                  className="w-full px-3 py-2 border border-stone-300 rounded text-sm resize-none"
-                />
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-600 mb-1">
+                    Your name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    required
+                    value={checkoutForm.name}
+                    onChange={(e) => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-600 mb-1">
+                    City / Pincode <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="City / Pincode"
+                    required
+                    value={checkoutForm.city}
+                    onChange={(e) => setCheckoutForm({ ...checkoutForm, city: e.target.value })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-stone-600 mb-1">
+                    Note for the founders
+                  </label>
+                  <textarea
+                    placeholder="Note for the founders (customisation, gift message...)"
+                    rows={2}
+                    value={checkoutForm.note}
+                    onChange={(e) => setCheckoutForm({ ...checkoutForm, note: e.target.value })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded text-sm resize-none"
+                  />
+                </div>
+                {formError && (
+                  <p className="text-xs text-red-600 font-semibold pt-1">{formError}</p>
+                )}
               </div>
             )}
 

@@ -19,7 +19,7 @@ import { MessageSquare, ShieldCheck, Store, MapPin, Clock, Phone, Filter } from 
 import { cloudDb, subscribeToSyncStatus, SyncState } from './lib/supabaseSync';
 import { supabase, isSupabaseConfigured, UserRole } from './lib/supabaseClient';
 import AdminAuth from './components/AdminAuth';
-import { pathToTab, tabToPath } from './lib/router';
+import { pathToTab, tabToPath, parsePath, productPath } from './lib/router';
 import founderPoojaImg from '../assets/founder.jpeg';
 import cofounderPranitaImg from '../assets/co-founder.jpeg';
 import visitingBg from '../assets/Neakless.jpeg';
@@ -55,6 +55,34 @@ export default function App() {
       storeTiming: "10 AM - 8 PM"
     };
   });
+
+  // Product detail modal + cart drawer. Declared up-front (before any
+  // useEffect that closes over them) so the TDZ is empty on first render.
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  // Lightweight toast — used when a shared product URL no longer resolves
+  // to a known item, or any other one-off notice.
+  const [toastMessage, setToastMessage] = useState<string>('');
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('gg:toast');
+      if (stored) {
+        setToastMessage(stored);
+        sessionStorage.removeItem('gg:toast');
+        const t = setTimeout(() => setToastMessage(''), 4000);
+        return () => clearTimeout(t);
+      }
+    } catch { /* storage blocked */ }
+  }, [products.length > 0]);
+  // Re-arm: if a new toast is pushed (e.g. from a stale URL) while the old
+  // one is still showing, the timeout above will be reset by React's
+  // re-running of the effect whenever `products.length` flips.
+  useEffect(() => {
+    if (!toastMessage) return;
+    const t = setTimeout(() => setToastMessage(''), 4000);
+    return () => clearTimeout(t);
+  }, [toastMessage]);
 
   // Supabase Syncing States
   const [syncState, setSyncState] = useState<SyncState>({ status: 'loading', message: 'Checking data store...' });
@@ -107,9 +135,63 @@ export default function App() {
     return () => window.removeEventListener('gg:openProduct', openProductHandler);
   }, [products]);
 
+  // Resolve the initial product (if any) from the URL on first paint.
+  useEffect(() => {
+    if (products.length === 0) return;
+    const parsed = parsePath(window.location.pathname, products);
+    if (parsed.kind === "product" && parsed.product.id) {
+      const match = products.find(p => p.id === parsed.product.id);
+      if (match) {
+        // Open the modal — the modal renders above any tab, so we don't
+        // need to change activeTab here. The "modal URL sync" effect will
+        // push the product URL once React re-renders with the new
+        // selectedProduct (which is exactly the URL the user already has).
+        setSelectedProduct(match);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // Product id in the URL doesn't exist (deleted, never existed, or
+        // shared before the page loaded). Send the user to the shop with
+        // a toast instead of leaving them staring at an empty page.
+        const target = tabToPath('shop');
+        if (window.location.pathname !== target) {
+          window.history.replaceState({}, '', target);
+        }
+        setActiveTab('shop');
+        try {
+          sessionStorage.setItem('gg:toast', 'That piece is no longer available. Browse our latest collection below.');
+        } catch { /* storage blocked */ }
+      }
+    }
+    // products is intentionally omitted — we only want this to run once
+    // after the first products load. A subsequent nav event is handled by
+    // the popstate listener below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products.length > 0]);
+
+  // When the modal is open, keep the URL in sync — and listen for the
+  // browser's back button to close the modal and return to /shop.
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const target = productPath(selectedProduct.id, selectedProduct.name);
+    if (window.location.pathname !== target) {
+      window.history.pushState({ ggProduct: selectedProduct.id }, '', target);
+    }
+    const onPop = () => {
+      // Back was pressed — if we no longer match a product path, close.
+      const parsed = parsePath(window.location.pathname);
+      if (parsed.kind !== "product") {
+        setSelectedProduct(null);
+      } else if (parsed.product.id !== selectedProduct.id) {
+        const other = products.find(p => p.id === parsed.product.id);
+        setSelectedProduct(other || null);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [selectedProduct, products]);
+
   const [authSession, setAuthSession] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
   useEffect(() => {
     const fetchPersistedSession = async () => {
       setCheckingAuth(true);
@@ -177,9 +259,6 @@ export default function App() {
       };
     }
   }, []);
-
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [cartOpen, setCartOpen] = useState(false);
 
   // Wire scroll-reveal animations to the active tab — every time the
   // customer switches tab, any new `.reveal` elements become visible as
@@ -422,6 +501,25 @@ export default function App() {
       {/* 1b. Top offer ribbon — auto-rotates active coupons, dismissable. */}
       {activeTab !== 'admin' && <OfferBanner />}
 
+      {/* 1c. Soft toast — used for one-off notices (e.g. stale product URL). */}
+      {toastMessage && activeTab !== 'admin' && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-[92vw] sm:max-w-md bg-[#1D1D1D] text-white text-xs sm:text-sm px-4 py-3 rounded-md shadow-2xl border border-[#C9A66B]/30 flex items-center gap-3 tab-fade-in"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#C9A66B] flex-shrink-0" />
+          <span className="flex-1">{toastMessage}</span>
+          <button
+            onClick={() => setToastMessage('')}
+            className="text-white/70 hover:text-white text-base leading-none"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* 2. Main Page Content views */}
       <main ref={mainRef} className="flex-1 w-full">
 
@@ -457,7 +555,16 @@ export default function App() {
                     <div key={prod.id} className={`reveal reveal-delay-${(idx % 4) + 1} min-w-0`}>
                       <ProductCard
                         product={prod}
-                        onViewDetails={(p) => setSelectedProduct(p)}
+                        onViewDetails={(p) => {
+                          // Make sure we're on /shop in the URL — push the
+                          // current tab first (so the back button returns
+                          // to the listing), then the product URL.
+                          if (activeTab !== 'shop') setActiveTab('shop');
+                          setSelectedProduct(p);
+                          const newPath = productPath(p.id, p.name);
+                          window.history.pushState({ ggProduct: p.id }, '', newPath);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
                         whatsappContact={settings.whatsappContact}
                       />
                     </div>
@@ -650,7 +757,13 @@ export default function App() {
                         <ProductCard
                           key={p.id}
                           product={p}
-                          onViewDetails={(prod) => setSelectedProduct(prod)}
+                          onViewDetails={(prod) => {
+                            if (activeTab !== 'shop') setActiveTab('shop');
+                            setSelectedProduct(prod);
+                            const newPath = productPath(prod.id, prod.name);
+                            window.history.pushState({ ggProduct: prod.id }, '', newPath);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
                           whatsappContact={settings.whatsappContact}
                         />
                       ))}
@@ -1017,7 +1130,14 @@ export default function App() {
         <ProductDetailModal
           product={selectedProduct}
           allProducts={products}
-          onClose={() => setSelectedProduct(null)}
+          onClose={() => {
+            setSelectedProduct(null);
+            // Step back to the prior URL (the listing page) so the
+            // browser's back button is not the only way to leave.
+            if (window.location.pathname.startsWith('/product/') || window.location.pathname.startsWith('/p/')) {
+              window.history.back();
+            }
+          }}
           whatsappContact={settings.whatsappContact}
         />
       )}

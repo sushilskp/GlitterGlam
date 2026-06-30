@@ -42,6 +42,8 @@ export default function ProductDetailModal({
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '', location: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const activeOffers = useMemo(() => loadCoupons().filter(c => c.active).slice(0, 2), []);
   const giftWrapOptions = useMemo(() => getActiveGiftWrapOptions().slice(0, 1), []);
@@ -56,6 +58,13 @@ export default function ProductDetailModal({
     })();
     return () => { mounted = false; };
   }, [product.id]);
+
+  useEffect(() => {
+    if (!showShareMenu) return;
+    const onDocClick = () => setShowShareMenu(false);
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [showShareMenu]);
 
   const productReviews = useMemo(() => getReviewsForProduct(reviews, product.sku), [reviews, product.sku]);
   const productVideos = useMemo(() => videos.filter(v => v.productSku === product.sku), [videos, product.sku]);
@@ -74,6 +83,35 @@ export default function ProductDetailModal({
 
   const contactNo = sanitizeWhatsAppNumber(whatsappContact);
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = `Check out this from Glitter Glam: ${product.name} (SKU ${product.sku}) — ₹${product.discountPrice.toLocaleString('en-IN')}`;
+  const shareLinks = {
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + currentUrl)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(currentUrl)}`,
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(currentUrl)}`,
+    telegram: `https://t.me/share/url?url=${encodeURIComponent(currentUrl)}&text=${encodeURIComponent(shareText)}`,
+  };
+
+  async function handleShare() {
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      try {
+        await (navigator as any).share({ title: product.name, text: shareText, url: currentUrl });
+        return;
+      } catch {
+        /* user cancelled — fall through to menu */
+      }
+    }
+    setShowShareMenu(s => !s);
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1800);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
   const orderMessage = `*Order Inquiry*\n\n*Product Name:* ${product.name}\n*Product SKU:* ${product.sku}\n*Product Price:* ₹${product.discountPrice.toLocaleString('en-IN')}\n*Selected Size:* ${selectedSize}\n*Quantity:* ${quantity}\n*Product URL:* ${currentUrl}`;
 
   const isLowStock = product.stock > 0 && product.stock <= 5;
@@ -211,13 +249,41 @@ export default function ProductDetailModal({
                 </div>
               )}
 
-              <div className="flex items-center gap-4 pt-2 text-xs text-stone-600">
+              <div className="flex items-center gap-4 pt-2 text-xs text-stone-600 relative">
                 <button className="flex items-center gap-1.5 hover:text-red-500 transition-colors">
                   <Heart className="w-4 h-4" /> Wishlist
                 </button>
-                <button className="flex items-center gap-1.5 hover:text-[#C9A66B] transition-colors">
-                  <Share2 className="w-4 h-4" /> Share
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={handleShare}
+                    className="flex items-center gap-1.5 hover:text-[#C9A66B] transition-colors"
+                    aria-label="Share this product"
+                  >
+                    <Share2 className="w-4 h-4" /> Share
+                  </button>
+                  {showShareMenu && (
+                    <div
+                      className="absolute z-30 left-0 mt-2 w-52 bg-white border border-stone-200 rounded-lg shadow-xl py-1.5 tab-fade-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <a href={shareLinks.whatsapp} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 text-stone-700">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" /> WhatsApp
+                      </a>
+                      <a href={shareLinks.facebook} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 text-stone-700">
+                        <span className="w-2 h-2 rounded-full bg-blue-600" /> Facebook
+                      </a>
+                      <a href={shareLinks.twitter} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 text-stone-700">
+                        <span className="w-2 h-2 rounded-full bg-sky-500" /> X / Twitter
+                      </a>
+                      <a href={shareLinks.telegram} target="_blank" rel="noopener noreferrer" onClick={() => setShowShareMenu(false)} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 text-stone-700">
+                        <span className="w-2 h-2 rounded-full bg-sky-400" /> Telegram
+                      </a>
+                      <button onClick={copyShareLink} className="w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:bg-stone-50 text-stone-700 border-t border-stone-100">
+                        <span className="w-2 h-2 rounded-full bg-stone-400" /> {shareCopied ? 'Link copied ✓' : 'Copy link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

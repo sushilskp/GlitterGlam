@@ -23,7 +23,19 @@ export type TabKey =
   | "faq"
   | "about"
   | "admin"
-  | "notFound";
+  | "notFound"
+  | "product";
+
+export interface ProductPath {
+  kind: "product";
+  id: string;       // product id
+  slug: string;     // product slug (used in the URL)
+}
+
+export type ParsedPath =
+  | { kind: "tab"; tab: TabKey }
+  | { kind: "product"; product: ProductPath }
+  | { kind: "unknown" };
 
 export const ROUTES: Record<TabKey, string> = {
   home: "/",
@@ -33,6 +45,7 @@ export const ROUTES: Record<TabKey, string> = {
   about: "/about",
   admin: "/admin",
   notFound: "/404",
+  product: "/product",
 };
 
 const PATH_TO_TAB: Record<string, TabKey> = {
@@ -52,7 +65,69 @@ export function pathToTab(path: string): TabKey {
   // Normalize: drop trailing slash, ignore query/hash
   const clean = (path || "/").split("?")[0].split("#")[0];
   const trimmed = clean.length > 1 ? clean.replace(/\/+$/, "") : clean;
-  return PATH_TO_TAB[trimmed] ?? "notFound";
+  if (PATH_TO_TAB[trimmed]) return PATH_TO_TAB[trimmed];
+  if (trimmed === "/product" || trimmed.startsWith("/product/") || trimmed.startsWith("/p/")) {
+    return "product";
+  }
+  return "notFound";
+}
+
+/**
+ * Parses a URL path into either a tab route or a product route.
+ *   /shop              -> tab "shop"
+ *   /product/abc-123   -> product { id: "abc-123" }
+ *   /p/abc-123-my-ring -> product { id: "abc-123" }
+ */
+export function parsePath(path: string, products?: { id: string; name: string }[]): ParsedPath {
+  const clean = (path || "/").split("?")[0].split("#")[0];
+  const trimmed = clean.length > 1 ? clean.replace(/\/+$/, "") : clean;
+
+  if (trimmed.startsWith("/product/")) {
+    const tail = trimmed.slice("/product/".length);
+    return { kind: "product", product: decodeProductTail(tail, products) };
+  }
+  if (trimmed.startsWith("/p/")) {
+    const tail = trimmed.slice("/p/".length);
+    return { kind: "product", product: decodeProductTail(tail, products) };
+  }
+
+  if (PATH_TO_TAB[trimmed]) return { kind: "tab", tab: PATH_TO_TAB[trimmed] };
+  return { kind: "unknown" };
+}
+
+function decodeProductTail(tail: string, products?: { id: string; name: string }[]): ProductPath {
+  // Two supported formats:
+  //   "<id>"                                 -> just the id
+  //   "<id>-<slug>"                          -> id + slug for SEO
+  // We try the full tail as an id first, then strip a slug suffix.
+  if (products && products.length > 0) {
+    const exact = products.find(p => p.id === tail);
+    if (exact) return { id: exact.id, slug: slugify(exact.name) };
+  }
+  const dashIndex = tail.indexOf("-");
+  if (dashIndex > 0) {
+    const id = tail.slice(0, dashIndex);
+    const slug = tail.slice(dashIndex + 1);
+    return { id, slug };
+  }
+  return { id: tail, slug: "" };
+}
+
+/** Build a friendly product URL: /product/<id>-<slug> */
+export function productPath(id: string, name: string): string {
+  return `/product/${id}-${slugify(name)}`;
+}
+
+/** Lightweight slugifier — lowercases, strips diacritics, replaces non-alnum with `-`. */
+export function slugify(input: string): string {
+  return (input || "")
+    .toString()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
 }
 
 export function tabToPath(tab: string): string {
