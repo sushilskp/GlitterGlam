@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product, HomeSettings } from './types';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -14,6 +14,7 @@ import CartDrawer from './components/CartDrawer';
 import OfferBanner from './components/OfferBanner';
 import FeedbackSection from './components/FeedbackSection';
 import { useScrollReveal } from './lib/useScrollReveal';
+import { useScrollToTopOnClick } from './lib/useScrollToTopOnClick';
 import { MessageSquare, ShieldCheck, Store, MapPin, Clock, Phone, Filter } from 'lucide-react';
 import { cloudDb, subscribeToSyncStatus, SyncState } from './lib/supabaseSync';
 import { supabase, isSupabaseConfigured, UserRole } from './lib/supabaseClient';
@@ -184,6 +185,14 @@ export default function App() {
   // customer switches tab, any new `.reveal` elements become visible as
   // they scroll into view.
   useScrollReveal([activeTab, products.length]);
+
+  // Ref onto the customer-facing <main> so the global click-to-top hook
+  // can attach a single listener that brings the page back to the top
+  // whenever *any* button (navigating or not) is clicked inside the
+  // customer pages — answering the brief "every click should take me
+  // back to the top of the page".
+  const mainRef = useRef<HTMLElement>(null);
+  useScrollToTopOnClick(mainRef, activeTab !== 'admin');
 
   // Shop Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -414,7 +423,7 @@ export default function App() {
       {activeTab !== 'admin' && <OfferBanner />}
 
       {/* 2. Main Page Content views */}
-      <main className="flex-1 w-full">
+      <main ref={mainRef} className="flex-1 w-full">
 
         {/* TAB A: HOMEPAGE OVERVIEW */}
         {activeTab === 'home' && (
