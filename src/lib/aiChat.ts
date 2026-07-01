@@ -25,16 +25,25 @@ export interface ChatResponse {
   source: 'openrouter' | 'offline';
 }
 
+// Free OpenRouter models — verified working list (2026).
+// Order matters: the first is the default, the rest are alternatives the
+// operator can pick from the in-chat model switcher. We keep `openrouter/free`
+// as the auto-router default so the chatbot always uses something that is
+// currently up.
 const FREE_MODEL_OPTIONS = [
-  // Default: OpenRouter's auto-router that picks a free model that's currently up.
   'openrouter/free',
-  'liquid/lfm-2.5-1.2b-instruct-20260120:free',
-  'mistralai/mistral-small-3.2-24b-instruct:free',
-  'google/gemma-3-27b-it:free',
   'meta-llama/llama-3.3-70b-instruct:free',
+  'google/gemma-3-27b-it:free',
+  'mistralai/mistral-small-3.2-24b-instruct:free',
+  'qwen/qwen-2.5-72b-instruct:free',
   'meta-llama/llama-3.1-8b-instruct:free',
   'qwen/qwen-2.5-7b-instruct:free',
   'deepseek/deepseek-chat-v3-0324:free',
+  'liquid/lfm-2.5-1.2b-instruct-20260120:free',
+  'nvidia/llama-3.1-nemotron-70b-instruct:free',
+  'cognitivecomputations/dolphin3.0-mistral-24b:free',
+  'nousresearch/hermes-3-llama-3.1-405b:free',
+  'google/gemini-2.0-flash-exp:free',
 ];
 
 export function listFreeModels(): string[] {
@@ -51,21 +60,41 @@ function summariseProducts(products: Product[]): string {
 }
 
 export function buildSystemPrompt(products: Product[], storeName: string = 'Glitter Glam'): string {
+  // Identify "new" products — anything added in the last 14 days — so the
+  // AI can naturally feature them when the customer asks what's new.
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const isNew = (p: Product) => {
+    const id = (p.id || '').toLowerCase();
+    if (id.startsWith('new-') || id.includes('-new')) return true;
+    if ((p as any).createdAt && !Number.isNaN(Date.parse((p as any).createdAt))) {
+      return Date.parse((p as any).createdAt) >= fourteenDaysAgo;
+    }
+    if (p.isFeatured) return true;
+    return false;
+  };
+  const newArrivals = products.filter(isNew).slice(0, 10);
+  const newArrivalsBlock = newArrivals.length
+    ? `\nNew arrivals (last 14 days, prioritise these when the customer asks what's new):\n${newArrivals.map(p => `- [${p.sku}] ${p.name} | ${p.category} | ₹${p.discountPrice.toLocaleString('en-IN')} | tags: ${(p.occasionTags || []).join(', ') || 'none'}`).join('\n')}`
+    : '';
+
   return `You are the AI Stylist for ${storeName}, an affordable luxury Indian jewellery boutique based in Punjab.
 You help customers pick necklaces, earrings, rings, bracelets and bangles.
 You can ONLY recommend products that appear in the catalogue below. For every recommendation, ALWAYS mention the product's SKU in square brackets so the frontend can render it as a clickable card.
 
 Catalogue (max 80 items):
-${summariseProducts(products)}
+${summariseProducts(products)}${newArrivalsBlock}
 
 Rules:
 - Be warm, concise, and confident. Use 2-4 short sentences per reply.
 - Always reference the SKU of every product you recommend as [SKU] (square brackets) so the frontend can render it as a clickable card. Example: "Our [GG-BR-001] Bridal Choker would suit you perfectly."
 - Write in plain prose. Do NOT use any markdown, asterisks, bold, italics, bullet symbols, or hashtags in your reply.
-- If the user mentions an occasion (wedding, festival, daily wear, office, party, gift, etc.), filter recommendations to matching categories/tags.
-- If asked for gifting, suggest adding the Royal Velvet Box gift wrap.
-- Never invent SKUs. If nothing fits, say so honestly and ask 1 short clarifying question.
-- Always end with a soft call to action (e.g. "Want me to send the link on WhatsApp?" or "Shall I compare two designs?").`;
+- Listen carefully to the customer's requirements: occasion (wedding, festive, diwali, navratri, daily, office, party, gift), budget, category preference, material preference (gold-plated, 1-gram gold, artificial, kundan, pearl, etc.), and any specific style words (minimal, statement, traditional, modern). Filter recommendations to match ALL stated requirements.
+- When the customer asks what's new or fresh, lead with the new-arrivals list above.
+- When the customer asks for a new product by name, check the new-arrivals list first, then the full catalogue.
+- Mention 2-3 of the product's key features (material, occasion, style) so the customer understands WHY it fits their requirement.
+- If asked for gifting, suggest adding the Royal Velvet Box gift wrap and mention it as an add-on.
+- Never invent SKUs. If nothing fits the requirement, say so honestly and ask 1 short clarifying question (occasion, budget, or category).
+- Always end with a soft call to action (e.g. "Want me to send the link on WhatsApp?" or "Shall I compare two designs?" or "Would you like to see matching earrings?").`;
 }
 
 // ----- Offline recommender -----
@@ -121,6 +150,38 @@ function offlineReply(history: ChatTurn[], products: Product[]): ChatResponse {
   const last = [...history].reverse().find(t => t.role === 'user');
   const userText = last?.content || '';
   const tokens = tokenize(userText);
+  const lower = userText.toLowerCase();
+
+  // "new" / "latest" / "fresh" / "recent" — show the new arrivals list.
+  const isNewQuery = /\b(new|latest|fresh|recent|just\s*added|new\s*arrival|what'?s\s*new|trending)\b/.test(lower);
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const isNewProduct = (p: Product) => {
+    const id = (p.id || '').toLowerCase();
+    if (id.startsWith('new-') || id.includes('-new')) return true;
+    if ((p as any).createdAt && !Number.isNaN(Date.parse((p as any).createdAt))) {
+      return Date.parse((p as any).createdAt) >= fourteenDaysAgo;
+    }
+    if (p.isFeatured) return true;
+    return false;
+  };
+
+  if (isNewQuery) {
+    const newOnes = products.filter(isNewProduct).slice(0, 5);
+    if (newOnes.length > 0) {
+      const lines = newOnes.map((p, i) =>
+        `${i + 1}. [${p.sku}] ${p.name} — ₹${p.discountPrice.toLocaleString('en-IN')} (${p.category})`
+      );
+      return {
+        content:
+          "Here are our newest pieces, just added to the catalogue:\n" +
+          lines.join('\n') +
+          "\n\nWant me to filter these by occasion or budget?",
+        productRefs: newOnes.map(p => p.sku),
+        model: 'offline-rule-based',
+        source: 'offline',
+      };
+    }
+  }
 
   let filtered: Product[] = products;
   for (const [cat, kws] of Object.entries(KEYWORD_TO_CATEGORY)) {
@@ -218,12 +279,16 @@ export async function sendChat(
         source: 'openrouter',
       };
     }
-    // 503 = no API key; 429/5xx = upstream issue. Either way, fall back.
-    if (res.status !== 503) {
+
+    // 503 = no API key; 502 = all models failed; 429/5xx = upstream issue.
+    // For 502 we surface a short hint in the offline message so the user
+    // knows the AI service is busy but they're not left without help.
+    if (res.status === 502) {
+      console.warn('[chat] all free models busy, falling back to offline mode.');
+    } else if (res.status !== 503) {
       console.warn(`[chat] upstream ${res.status}, falling back to offline mode.`);
-    } else {
-      // 503 means not configured — silent fallback is fine.
     }
+    // 503 means not configured — silent fallback is fine.
   } catch (err) {
     console.warn('[chat] fetch failed, using offline mode:', err);
   }

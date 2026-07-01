@@ -45,48 +45,88 @@ app.post("/api/chat", async (req, res) => {
   const chosenModel =
     (typeof model === "string" && model.trim()) ||
     process.env.OPENROUTER_MODEL ||
-    "meta-llama/llama-3.1-8b-instruct:free";
+    "openrouter/free";
 
-  try {
-    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${cleanKey}`,
-        // OpenRouter recommends these for attribution / leaderboards.
-        "HTTP-Referer": req.headers.origin || `http://localhost:${PORT}`,
-        "X-Title": "Glitter Glam AI Stylist",
-      },
-      body: JSON.stringify({
-        model: chosenModel,
-        messages,
-        // Cap output to keep the chat snappy and within the free tier.
-        // 1500 covers short reasoning models while still bounding the bill.
-        max_tokens: 1500,
-        temperature: 0.7,
-      }),
-    });
+  // Fallback ladder — if the operator's chosen free model is currently
+  // rate-limited, down, or returns an error, we try the next one before
+  // giving up. Order matters: most capable first.
+  const FALLBACK_MODELS = [
+    "openrouter/free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "google/gemma-3-27b-it:free",
+    "mistralai/mistral-small-3.2-24b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "qwen/qwen-2.5-7b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+    "google/gemini-2.0-flash-exp:free",
+    "nvidia/llama-3.1-nemotron-70b-instruct:free",
+  ];
+  // Try the operator's pick first, then walk the fallback list — but skip
+  // the operator's pick in the ladder to avoid duplicate attempts.
+  const modelChain = [
+    chosenModel,
+    ...FALLBACK_MODELS.filter(m => m !== chosenModel),
+  ];
 
-    if (!upstream.ok) {
-      const errText = await upstream.text().catch(() => "");
-      console.warn(`[OpenRouter] ${upstream.status}: ${errText.slice(0, 300)}`);
-      res.status(upstream.status).json({
-        error: "upstream_error",
-        status: upstream.status,
-        message: errText.slice(0, 500),
+  let lastError = "";
+  for (const tryModel of modelChain) {
+    try {
+      const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${cleanKey}`,
+          // OpenRouter recommends these for attribution / leaderboards.
+          "HTTP-Referer": req.headers.origin || `http://localhost:${PORT}`,
+          "X-Title": "Glitter Glam AI Stylist",
+        },
+        body: JSON.stringify({
+          model: tryModel,
+          messages,
+          // Cap output to keep the chat snappy and within the free tier.
+          // 1500 covers short reasoning models while still bounding the bill.
+          max_tokens: 1500,
+          temperature: 0.7,
+        }),
       });
-      return;
-    }
 
-    const data = await upstream.json();
-    res.json(data);
-  } catch (err: any) {
-    console.error("[OpenRouter] proxy error:", err);
-    res.status(502).json({
-      error: "proxy_failure",
-      message: err?.message || "Upstream call failed",
-    });
+      if (upstream.ok) {
+        const data = await upstream.json();
+        // Tag the actual model that served the request so the client can
+        // surface it in the chat header (helps when the auto-router picks).
+        if (data && !data.model) data.model = tryModel;
+        res.json(data);
+        return;
+      }
+
+      // 4xx (except 429) means the request is malformed / not authorised —
+      // don't waste time on fallbacks, just return.
+      const errText = await upstream.text().catch(() => "");
+      lastError = `[${tryModel}] ${upstream.status}: ${errText.slice(0, 200)}`;
+      console.warn(`[OpenRouter] ${lastError}`);
+      if (upstream.status >= 400 && upstream.status < 500 && upstream.status !== 429) {
+        res.status(upstream.status).json({
+          error: "upstream_error",
+          status: upstream.status,
+          model: tryModel,
+          message: errText.slice(0, 500),
+        });
+        return;
+      }
+      // 429 / 5xx — try the next model in the chain.
+    } catch (err: any) {
+      lastError = `[${tryModel}] network: ${err?.message || "unknown"}`;
+      console.warn(`[OpenRouter] ${lastError}`);
+      // Network error — try the next model.
+    }
   }
+
+  // All models failed.
+  res.status(502).json({
+    error: "all_models_failed",
+    message: lastError || "No free model is currently available. Please try again in a moment.",
+  });
 });
 
 // Vite middleware development integration or Fallback index production pipeline

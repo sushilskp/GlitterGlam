@@ -12,25 +12,31 @@ const SUGGESTED_PROMPTS = [
   'I need a bridal necklace set under ₹6,000',
   'Show me daily-wear earrings',
   'Recommend a gift for my sister',
-  'Festive bangles in 1-gram gold',
+  "What's new in the catalogue?",
 ];
 
 const QUICK_FOLLOWUPS = [
   'Compare top picks',
   'Show me something under ₹2,000',
   'What goes with a red lehenga?',
+  "Show me what's new",
 ];
 
 // Show users a friendly label, not the raw model identifier.
 const MODEL_LABELS: Record<string, string> = {
   'openrouter/free': 'Auto (best free model)',
-  'liquid/lfm-2.5-1.2b-instruct-20260120:free': 'Liquid · 1.2B',
-  'mistralai/mistral-small-3.2-24b-instruct:free': 'Mistral · 24B',
-  'google/gemma-3-27b-it:free': 'Gemma 3 · 27B',
   'meta-llama/llama-3.3-70b-instruct:free': 'Llama 3.3 · 70B',
+  'google/gemma-3-27b-it:free': 'Gemma 3 · 27B',
+  'mistralai/mistral-small-3.2-24b-instruct:free': 'Mistral · 24B',
+  'qwen/qwen-2.5-72b-instruct:free': 'Qwen 2.5 · 72B',
   'meta-llama/llama-3.1-8b-instruct:free': 'Llama 3.1 · 8B',
   'qwen/qwen-2.5-7b-instruct:free': 'Qwen 2.5 · 7B',
   'deepseek/deepseek-chat-v3-0324:free': 'DeepSeek V3',
+  'liquid/lfm-2.5-1.2b-instruct-20260120:free': 'Liquid · 1.2B',
+  'nvidia/llama-3.1-nemotron-70b-instruct:free': 'Nemotron · 70B',
+  'cognitivecomputations/dolphin3.0-mistral-24b:free': 'Dolphin 3 · 24B',
+  'nousresearch/hermes-3-llama-3.1-405b:free': 'Hermes 3 · 405B',
+  'google/gemini-2.0-flash-exp:free': 'Gemini 2.0 Flash',
 };
 
 function prettifyModelName(id: string): string {
@@ -46,6 +52,7 @@ export default function AIChatbot({ products }: AIChatbotProps) {
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [source, setSource] = useState<'openrouter' | 'offline' | 'unknown'>('unknown');
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadChatHistory());
+  const [activeModel, setActiveModel] = useState<string>('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -111,6 +118,7 @@ export default function AIChatbot({ products }: AIChatbotProps) {
       };
       setMessages(prev => [...prev, aiMsg]);
       setSource(response.source);
+      setActiveModel(response.model || '');
     } catch (err) {
       console.error('chat send error', err);
       setMessages(prev => [
@@ -172,8 +180,10 @@ export default function AIChatbot({ products }: AIChatbotProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-serif text-sm font-semibold leading-tight">Glitter Glam AI Stylist</p>
-            <p className="text-[10px] text-[#C9A66B] uppercase tracking-widest">
-              {source === 'openrouter' ? 'Personal Stylist · Online' : 'Personal Stylist · Ready'}
+            <p className="text-[10px] text-[#C9A66B] uppercase tracking-widest truncate">
+              {source === 'openrouter'
+                ? `Online · ${prettifyModelName(activeModel || model)}`
+                : 'Personal Stylist · Ready'}
             </p>
           </div>
           <button
@@ -228,7 +238,7 @@ export default function AIChatbot({ products }: AIChatbotProps) {
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="bg-white border border-stone-200 rounded-2xl rounded-tl-sm px-3 py-2 text-xs leading-relaxed text-stone-800 max-w-[85%]">
-                  Hi! I'm your AI Stylist. Tell me the occasion, your budget, or the kind of piece you have in mind — I'll recommend matching products from our catalogue.
+                  Hi! I'm your AI Stylist. Tell me the occasion, your budget, or the kind of piece you have in mind — I'll recommend matching products from our catalogue. You can also ask "what's new" to see our latest additions.
                 </div>
               </div>
               <div className="flex flex-wrap gap-1.5 pl-9">
